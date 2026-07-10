@@ -616,7 +616,12 @@ const runResearch = asyncHandler(async (req, res) => {
       cashFlows = yahooData.cashFlows;
       ratios = yahooData.ratios;
       keyMetrics = yahooData.keyMetrics;
-    } catch {
+    } catch (yahooErr) {
+      if (finalSearchSymbol) {
+        console.log(`✓ Yahoo Search resolved ${cleanSymbol} → ${finalSearchSymbol}`);
+        console.log(`✗ Yahoo Financial APIs failed: ${yahooErr.message || 'Rate limited (429)'}`);
+        console.log(`✓ Switching to Financial Modeling Prep...`);
+      }
       try {
         let fmpSymbol = searchTarget;
         if (!finalSearchSymbol && config.fmpKey) {
@@ -638,8 +643,16 @@ const runResearch = asyncHandler(async (req, res) => {
         cashFlows = fmpData.cashFlows;
         ratios = fmpData.ratios;
         keyMetrics = fmpData.keyMetrics;
+        
+        if (finalSearchSymbol) {
+          console.log(`✓ Financial data loaded successfully from FMP.`);
+        }
       } catch (fmpError) {
-        throw createError(`Unable to locate stock matching "${cleanSymbol}". Please check the spelling or symbol.`, 404);
+        if (finalSearchSymbol) {
+          throw createError(`Located "${cleanSymbol}", but no financial data is available to analyze from fallback APIs.`, 404);
+        } else {
+          throw createError(`Unable to locate stock matching "${cleanSymbol}". Please check the spelling or symbol.`, 404);
+        }
       }
     }
   }
