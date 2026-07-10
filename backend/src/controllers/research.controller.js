@@ -137,10 +137,26 @@ async function fetchFromYahoo(symbol) {
     .split('T')[0];
 
   console.log("Fetching Quote Summary...");
-  const quoteSummary = await yf.quoteSummary(symbol, {
-    modules: ["price", "summaryProfile", "financialData", "defaultKeyStatistics"],
-  });
-  console.log("✅ Quote Summary OK");
+  
+  let quoteSummary;
+
+  try {
+    quoteSummary = await yf.quoteSummary(symbol, {
+      modules: ["price", "summaryProfile", "financialData", "defaultKeyStatistics"],
+    });
+
+    console.log("✅ Quote Summary OK");
+  } catch (err) {
+    console.error("❌ Quote Summary FAILED");
+    console.error("Message:", err.message);
+    console.error("Stack:", err.stack);
+
+    if (err.response) {
+      console.error("Response:", err.response.data);
+    }
+
+    throw err;
+  }
 
   console.log("Fetching Financials...");
   const financialsSeries = await yf.fundamentalsTimeSeries(symbol, {
