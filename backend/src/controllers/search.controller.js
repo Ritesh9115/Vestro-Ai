@@ -16,9 +16,7 @@ yf._env.fetch = (url, init = {}) => {
   });
 };
 
-console.log("yf =", yf);
-console.log("yf._env =", yf._env);
-console.log("yf._env?.fetch =", yf._env?.fetch);
+
 
 function sortYahooQuotes(quotes) {
   if (!quotes || quotes.length === 0) return [];

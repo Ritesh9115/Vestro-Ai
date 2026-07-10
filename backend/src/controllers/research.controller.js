@@ -1,27 +1,27 @@
 const axios = require('axios');
 const YahooFinance = require('yahoo-finance2').default;
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const config = require('../config/config');
 const { asyncHandler, createError } = require('../utils/errors');
 const { safeNumber, calculateGrowthRate } = require('../utils/format');
 const { callGemini } = require('../utils/ai');
 
-const { fetch, ProxyAgent } = require("undici");
-
-const proxyAgent = new ProxyAgent({
-  uri: `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
-});
-
-const proxyFetch = (url, options = {}) => {
-  return fetch(url, {
-    ...options,
-    dispatcher: proxyAgent,
-  });
-};
+const proxyAgent = new HttpsProxyAgent(
+  `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
+);
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
-  fetch: proxyFetch,
 });
+
+const originalFetch = yf._env.fetch;
+
+yf._env.fetch = (url, init = {}) => {
+  return originalFetch(url, {
+    ...init,
+    dispatcher: proxyAgent,
+  });
+};
 
 function findBestYahooQuote(quotes) {
   if (!quotes || quotes.length === 0) return null;
@@ -473,7 +473,7 @@ async function verifyCompanyName(companyName) {
       return bestQuote.symbol.toUpperCase();
     }
   } catch (e) {
-    console.log(`Yahoo Search verification failed: ${e.message}`);
+
   }
 
   if (config.fmpKey) {
@@ -485,7 +485,7 @@ async function verifyCompanyName(companyName) {
         return sortedFmp[0].symbol;
       }
     } catch (e) {
-      console.log(`FMP Search verification failed: ${e.message}`);
+
     }
   }
   return null;
@@ -536,7 +536,7 @@ Output:`;
       return parsed;
     }
   } catch (e) {
-    console.log(`AI resolution failed: ${e.message}`);
+
   }
   return null;
 }
@@ -590,7 +590,7 @@ const runResearch = asyncHandler(async (req, res) => {
         verifiedName = matchResolution.name;
       }
     } catch (searchErr) {
-      console.log(`Search variant failed: ${searchErr.message}`);
+
     }
   }
 
@@ -620,7 +620,7 @@ const runResearch = asyncHandler(async (req, res) => {
             };
           }
         } catch (aiSearchErr) {
-          console.log(`AI Search variant failed: ${aiSearchErr.message}`);
+
         }
       }
     }
@@ -641,7 +641,7 @@ const runResearch = asyncHandler(async (req, res) => {
             matchResolution.matchReason = matchResolution.matchReason || 'Resolved via fallback search.';
           }
         } catch(e) {
-          console.log(`Fallback FMP search failed: ${e.message}`);
+
         }
      }
   }
@@ -684,14 +684,14 @@ const runResearch = asyncHandler(async (req, res) => {
   try {
     news = await fetchNews(company.name, company.symbol);
   } catch(e) {
-    console.log(`Fetch News failed: ${e.message}`);
+
   }
 
   let peers = [];
   try {
     peers = await fetchPeers(company.symbol);
   } catch(e) {
-    console.log(`Fetch Peers failed: ${e.message}`);
+
   }
 
   console.log("Generating AI Analysis...");

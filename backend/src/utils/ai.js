@@ -18,7 +18,7 @@ async function callGemini(prompt, options = {}) {
 
   for (const model of models) {
     try {
-      console.log(`🤖 Trying Gemini model: ${model}`);
+
 
       const llm = new ChatGoogleGenerativeAI({
         model,
@@ -67,7 +67,7 @@ async function callGemini(prompt, options = {}) {
       return text;
 
     } catch (err) {
-      console.log(`❌ ${model} failed: ${err.message}`);
+
       lastError = err;
     }
   }
