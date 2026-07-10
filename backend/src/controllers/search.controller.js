@@ -5,6 +5,30 @@ const { asyncHandler } = require('../utils/errors');
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
+function sortYahooQuotes(quotes) {
+  if (!quotes || quotes.length === 0) return [];
+  return quotes
+    .filter((q) => !!q.symbol)
+    .sort((a, b) => {
+      const aIsIndia = a.exchange === 'NSI' || a.exchange === 'BSE' || a.symbol.endsWith('.NS') || a.symbol.endsWith('.BO');
+      const bIsIndia = b.exchange === 'NSI' || b.exchange === 'BSE' || b.symbol.endsWith('.NS') || b.symbol.endsWith('.BO');
+      if (aIsIndia && !bIsIndia) return -1;
+      if (!aIsIndia && bIsIndia) return 1;
+      return 0;
+    });
+}
+
+function sortFMPResults(results) {
+  if (!results || results.length === 0) return [];
+  return results.sort((a, b) => {
+    const aIsIndia = a.exchangeShortName === 'NSE' || a.exchangeShortName === 'BSE';
+    const bIsIndia = b.exchangeShortName === 'NSE' || b.exchangeShortName === 'BSE';
+    if (aIsIndia && !bIsIndia) return -1;
+    if (!aIsIndia && bIsIndia) return 1;
+    return 0;
+  });
+}
+
 const searchCompany = asyncHandler(async (req, res) => {
   const { q } = req.query;
   if (!q || q.trim().length < 1) {
@@ -16,30 +40,31 @@ const searchCompany = asyncHandler(async (req, res) => {
 
   try {
     const yahooResults = await yf.search(cleanQuery);
-    const quotes = yahooResults?.quotes || [];
-    results = quotes
-      .filter((item) => item.quoteType === 'EQUITY' || item.quoteType === 'ETF')
-      .map((item) => ({
-        symbol: item.symbol,
-        name: item.longname || item.shortname || item.symbol,
-        exchange: item.exchDisp || item.exchange || '',
-        type: item.quoteType || 'EQUITY',
-      }));
-  } catch {
+    const sortedQuotes = sortYahooQuotes(yahooResults?.quotes);
+    results = sortedQuotes.map((item) => ({
+      symbol: item.symbol,
+      name: item.longname || item.shortname || item.symbol,
+      exchange: item.exchDisp || item.exchange || '',
+      type: item.quoteType || 'EQUITY',
+    }));
+  } catch (err) {
+    console.log(`Yahoo Search failed for "${cleanQuery}":`, err.message);
     results = [];
   }
 
   if (results.length === 0 && config.fmpKey) {
     try {
-      const url = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(cleanQuery)}&limit=8&apikey=${config.fmpKey}`;
+      const url = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(cleanQuery)}&limit=5&apikey=${config.fmpKey}`;
       const response = await axios.get(url, { timeout: 8000 });
-      results = (response.data || []).map((item) => ({
+      const sortedFmp = sortFMPResults(response.data || []);
+      results = sortedFmp.map((item) => ({
         symbol: item.symbol,
         name: item.name,
         exchange: item.exchangeShortName,
         type: item.type,
       }));
-    } catch {
+    } catch (err) {
+      console.log(`FMP Search failed for "${cleanQuery}":`, err.message);
       results = [];
     }
   }

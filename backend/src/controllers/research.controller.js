@@ -7,6 +7,31 @@ const { callGemini } = require('../utils/ai');
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
+function findBestYahooQuote(quotes) {
+  if (!quotes || quotes.length === 0) return null;
+  const sorted = quotes
+    .filter((q) => !!q.symbol)
+    .sort((a, b) => {
+      const aIsIndia = a.exchange === 'NSI' || a.exchange === 'BSE' || a.symbol.endsWith('.NS') || a.symbol.endsWith('.BO');
+      const bIsIndia = b.exchange === 'NSI' || b.exchange === 'BSE' || b.symbol.endsWith('.NS') || b.symbol.endsWith('.BO');
+      if (aIsIndia && !bIsIndia) return -1;
+      if (!aIsIndia && bIsIndia) return 1;
+      return 0;
+    });
+  return sorted.length > 0 ? sorted[0] : null;
+}
+
+function sortFMPResults(results) {
+  if (!results || results.length === 0) return [];
+  return results.sort((a, b) => {
+    const aIsIndia = a.exchangeShortName === 'NSE' || a.exchangeShortName === 'BSE';
+    const bIsIndia = b.exchangeShortName === 'NSE' || b.exchangeShortName === 'BSE';
+    if (aIsIndia && !bIsIndia) return -1;
+    if (!aIsIndia && bIsIndia) return 1;
+    return 0;
+  });
+}
+
 function buildFinancialSummary(incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics) {
   const latest = incomeStatements[0] || {};
   const previous = incomeStatements[1] || {};
@@ -371,23 +396,24 @@ The backend will verify every company before displaying it.`;
 async function verifyCompanyName(companyName) {
   try {
     const searchRes = await yf.search(companyName);
-    const firstEquity = searchRes?.quotes?.find(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF');
-    if (firstEquity && firstEquity.symbol) {
-      return firstEquity.symbol.toUpperCase();
+    const bestQuote = findBestYahooQuote(searchRes?.quotes);
+    if (bestQuote && bestQuote.symbol) {
+      return bestQuote.symbol.toUpperCase();
     }
   } catch (e) {
-    console.error(`Yahoo Search verification failed for ${companyName}:`, e.message);
+    console.log(`Yahoo Search verification failed for "${companyName}":`, e.message);
   }
 
   if (config.fmpKey) {
     try {
-      const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(companyName)}&limit=1&apikey=${config.fmpKey}`;
+      const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(companyName)}&limit=5&apikey=${config.fmpKey}`;
       const fmpSearchRes = await axios.get(fmpSearchUrl, { timeout: 8000 });
-      if (fmpSearchRes.data && fmpSearchRes.data.length > 0) {
-        return fmpSearchRes.data[0].symbol;
+      const sortedFmp = sortFMPResults(fmpSearchRes.data || []);
+      if (sortedFmp.length > 0) {
+        return sortedFmp[0].symbol;
       }
     } catch (e) {
-      console.error(`FMP Search verification failed for ${companyName}:`, e.message);
+      console.log(`FMP Search verification failed for "${companyName}":`, e.message);
     }
   }
   return null;
@@ -454,10 +480,10 @@ const runResearch = asyncHandler(async (req, res) => {
 
   let matchResolution = {
     query: cleanSymbol,
-    symbol: cleanSymbol,
-    name: cleanSymbol,
-    confidenceScore: 100,
-    matchReason: 'Direct exact match'
+    symbol: null,
+    name: null,
+    confidenceScore: 0,
+    matchReason: null
   };
 
   let company, incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics;
@@ -470,26 +496,40 @@ const runResearch = asyncHandler(async (req, res) => {
     cashFlows = yahooData.cashFlows;
     ratios = yahooData.ratios;
     keyMetrics = yahooData.keyMetrics;
+    matchResolution.symbol = cleanSymbol;
     matchResolution.name = company.name;
+    matchResolution.confidenceScore = 100;
+    matchResolution.matchReason = 'Direct exact match';
   } catch {
     let finalSearchSymbol = null;
     let verifiedName = cleanSymbol;
 
-    try {
-      const searchRes = await yf.search(cleanSymbol);
-      const firstEquity = searchRes?.quotes?.find(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF');
-      if (firstEquity && firstEquity.symbol && firstEquity.symbol.toUpperCase() !== cleanSymbol) {
-        finalSearchSymbol = firstEquity.symbol.toUpperCase();
-        matchResolution = {
-          query: cleanSymbol,
-          symbol: finalSearchSymbol,
-          name: firstEquity.shortname || firstEquity.longname || finalSearchSymbol,
-          confidenceScore: 90,
-          matchReason: 'Closest match from search.'
-        };
-        verifiedName = matchResolution.name;
+    const searchVariations = [...new Set([
+      cleanSymbol,
+      cleanSymbol.replace(/ltd\.?/i, '').trim(),
+      cleanSymbol.replace(/limited/i, '').trim(),
+      cleanSymbol.replace(/\s+/g, ' ').trim()
+    ])];
+
+    for (const queryVariant of searchVariations) {
+      if (finalSearchSymbol) break;
+      try {
+        const searchRes = await yf.search(queryVariant);
+        const bestQuote = findBestYahooQuote(searchRes?.quotes);
+        if (bestQuote && bestQuote.symbol && bestQuote.symbol.toUpperCase() !== cleanSymbol) {
+          finalSearchSymbol = bestQuote.symbol.toUpperCase();
+          matchResolution = {
+            query: cleanSymbol,
+            symbol: finalSearchSymbol,
+            name: bestQuote.shortname || bestQuote.longname || finalSearchSymbol,
+            confidenceScore: 90,
+            matchReason: 'Closest match from search.'
+          };
+          verifiedName = matchResolution.name;
+        }
+      } catch (searchErr) {
+        console.log(`Yahoo Search failed for "${queryVariant}":`, searchErr.message);
       }
-    } catch (searchErr) {
     }
 
     if (!finalSearchSymbol) {
@@ -498,20 +538,30 @@ const runResearch = asyncHandler(async (req, res) => {
       if (llmResolution && llmResolution.companyName) {
         verifiedName = llmResolution.companyName;
 
-        try {
-          const aiSearchRes = await yf.search(llmResolution.companyName);
-          const firstEquity = aiSearchRes?.quotes?.find(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF');
-          if (firstEquity && firstEquity.symbol) {
-            finalSearchSymbol = firstEquity.symbol.toUpperCase();
-            matchResolution = {
-              query: cleanSymbol,
-              symbol: finalSearchSymbol,
-              name: firstEquity.shortname || firstEquity.longname || llmResolution.companyName,
-              confidenceScore: llmResolution.confidenceScore,
-              matchReason: llmResolution.matchReason
-            };
+        const aiVariations = [...new Set([
+          llmResolution.companyName,
+          llmResolution.companyName.replace(/ltd\.?/i, '').trim(),
+          llmResolution.companyName.replace(/limited/i, '').trim()
+        ])];
+
+        for (const queryVariant of aiVariations) {
+          if (finalSearchSymbol) break;
+          try {
+            const aiSearchRes = await yf.search(queryVariant);
+            const bestQuote = findBestYahooQuote(aiSearchRes?.quotes);
+            if (bestQuote && bestQuote.symbol) {
+              finalSearchSymbol = bestQuote.symbol.toUpperCase();
+              matchResolution = {
+                query: cleanSymbol,
+                symbol: finalSearchSymbol,
+                name: bestQuote.shortname || bestQuote.longname || llmResolution.companyName,
+                confidenceScore: llmResolution.confidenceScore,
+                matchReason: llmResolution.matchReason
+              };
+            }
+          } catch (aiSearchErr) {
+            console.log(`Yahoo Verification failed for AI resolution "${queryVariant}":`, aiSearchErr.message);
           }
-        } catch (aiSearchErr) {
         }
       }
     }
@@ -530,12 +580,13 @@ const runResearch = asyncHandler(async (req, res) => {
       try {
         let fmpSymbol = searchTarget;
         if (!finalSearchSymbol && config.fmpKey) {
-          const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(verifiedName)}&limit=1&apikey=${config.fmpKey}`;
+          const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(verifiedName)}&limit=5&apikey=${config.fmpKey}`;
           const fmpSearchRes = await axios.get(fmpSearchUrl, { timeout: 8000 });
-          if (fmpSearchRes.data && fmpSearchRes.data.length > 0) {
-            fmpSymbol = fmpSearchRes.data[0].symbol;
+          const sortedFmp = sortFMPResults(fmpSearchRes.data || []);
+          if (sortedFmp.length > 0) {
+            fmpSymbol = sortedFmp[0].symbol;
             matchResolution.symbol = fmpSymbol;
-            matchResolution.name = fmpSearchRes.data[0].name;
+            matchResolution.name = sortedFmp[0].name;
             matchResolution.matchReason = matchResolution.matchReason || 'Resolved via fallback search.';
           }
         }
@@ -579,7 +630,7 @@ const runResearch = asyncHandler(async (req, res) => {
     const competitors = aiAnalysis.recommendationHub.competitors || [];
     if (competitors.length === 0 && peers && peers.length > 0) {
       aiAnalysis.recommendationHub.competitors = peers.slice(0, 5).map(peer => ({
-        name: peer.name || peer.symbol,
+        name: peer,
         verdict: "Research Recommended",
         summary: "Financial comparison unavailable. You can still research this company."
       }));
