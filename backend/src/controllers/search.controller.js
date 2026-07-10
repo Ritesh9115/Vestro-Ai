@@ -1,9 +1,23 @@
 const axios = require('axios');
 const YahooFinance = require('yahoo-finance2').default;
 const config = require('../config/config');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const { asyncHandler } = require('../utils/errors');
 
+const proxyAgent = new HttpsProxyAgent('http://ulzjeywo:3ql39155i2he@142.111.67.146:5611');
+
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
+// 🔥 BULLETPROOF PROXY INJECTION 🔥
+// const originalFetch = yf._env.fetch;
+// yf._env.fetch = (url, init) => {
+//   init = init || {};
+//   init.agent = proxyAgent;
+//   return originalFetch(url, init);
+// };
+console.log("yf =", yf);
+console.log("yf._env =", yf._env);
+console.log("yf._env?.fetch =", yf._env?.fetch);
 
 function sortYahooQuotes(quotes) {
   if (!quotes || quotes.length === 0) return [];
