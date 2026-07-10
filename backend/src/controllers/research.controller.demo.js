@@ -6,26 +6,24 @@ const { asyncHandler, createError } = require('../utils/errors');
 const { safeNumber, calculateGrowthRate } = require('../utils/format');
 const { callGemini } = require('../utils/ai');
 
-// const proxyAgent = new HttpsProxyAgent('http://username:password@proxy-ip:port');
+const proxyAgent = new HttpsProxyAgent(
+  `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
+);
 
-// =========================================================================
-// ADD PROXY HERE FOR RENDER/VERCEL DEPLOYMENT TO AVOID 429 ERRORS
-// =========================================================================
-const yf = new YahooFinance({ 
-  suppressNotices: ['yahooSurvey'],
-  // requestOptions: {
-  //   proxy: 'http://username:password@proxy-ip:port' // <-- Yahan Webshare proxy URL aayega
-  // }
+const YahooFinance = require("yahoo-finance2").default;
+
+const yf = new YahooFinance({
+  suppressNotices: ["yahooSurvey"],
 });
 
-// 🔥 BULLETPROOF PROXY INJECTION 🔥
-// Schema validation bypass karne ke liye seedha HTTP layer hijack kar rahe hain
-// const originalFetch = yf._env.fetch;
-// yf._env.fetch = (url, init) => {
-//   init = init || {};
-//   init.agent = proxyAgent;
-//   return originalFetch(url, init);
-// };
+const originalFetch = yf._env.fetch;
+
+yf._env.fetch = (url, init = {}) => {
+  return originalFetch(url, {
+    ...init,
+    dispatcher: proxyAgent,
+  });
+};
 
 function findBestYahooQuote(quotes) {
   if (!quotes || quotes.length === 0) return null;

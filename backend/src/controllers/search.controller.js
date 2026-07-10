@@ -7,14 +7,15 @@ const { asyncHandler } = require('../utils/errors');
 const proxyAgent = new HttpsProxyAgent('http://ulzjeywo:3ql39155i2he@142.111.67.146:5611');
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+const originalFetch = yf._env.fetch;
 
-// 🔥 BULLETPROOF PROXY INJECTION 🔥
-// const originalFetch = yf._env.fetch;
-// yf._env.fetch = (url, init) => {
-//   init = init || {};
-//   init.agent = proxyAgent;
-//   return originalFetch(url, init);
-// };
+yf._env.fetch = (url, init = {}) => {
+  return originalFetch(url, {
+    ...init,
+    dispatcher: proxyAgent,
+  });
+};
+
 console.log("yf =", yf);
 console.log("yf._env =", yf._env);
 console.log("yf._env?.fetch =", yf._env?.fetch);
