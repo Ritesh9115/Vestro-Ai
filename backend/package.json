@@ -2,6 +2,9 @@
   "name": "stocks-backend",
   "version": "1.0.0",
   "main": "app.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js"
