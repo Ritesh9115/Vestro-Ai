@@ -1,32 +1,31 @@
 const YahooFinance = require("yahoo-finance2").default;
+const { ProxyAgent } = require("undici");
+
+const proxy = new ProxyAgent(
+  "http://ulzjeywo:3ql39155i2he@142.111.67.146:5611"
+);
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
+
+  fetch: (input, init = {}) => {
+    console.log("Yahoo Request:", input);
+
+    return fetch(input, {
+      ...init,
+      dispatcher: proxy,
+    });
+  },
 });
 
 (async () => {
   try {
-    console.log("===== BALANCE SHEET =====");
-
-    const balance = await yf.fundamentalsTimeSeries("AAPL", {
-      period1: "2020-01-01",
-      type: "annual",
-      module: "balance-sheet",
+    const data = await yf.quoteSummary("AAPL", {
+      modules: ["price"],
     });
 
-    console.dir(balance, { depth: 2 });
-
-    console.log("\n===== CASH FLOW =====");
-
-    const cash = await yf.fundamentalsTimeSeries("AAPL", {
-      period1: "2020-01-01",
-      type: "annual",
-      module: "cash-flow",
-    });
-
-    console.dir(cash, { depth: 2 });
-
-  } catch (err) {
-    console.error(err);
+    console.dir(data, { depth: null });
+  } catch (e) {
+    console.error(e);
   }
 })();

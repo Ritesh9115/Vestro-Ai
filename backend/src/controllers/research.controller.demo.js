@@ -9,13 +9,15 @@ const { callGemini } = require('../utils/ai');
 const proxyAgent = new HttpsProxyAgent(
   `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
 );
-
-const YahooFinance = require("yahoo-finance2").default;
+console.log("Proxy Config");
+console.log(config.proxyHost);
+console.log(config.proxyPort);
+console.log(config.proxyUsername);
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
 });
-
+console.log("Fetch exists:", typeof yf._env.fetch);
 const originalFetch = yf._env.fetch;
 
 yf._env.fetch = (url, init = {}) => {
