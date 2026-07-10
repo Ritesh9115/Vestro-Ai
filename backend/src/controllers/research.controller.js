@@ -136,12 +136,35 @@ async function fetchFromYahoo(symbol) {
     .toISOString()
     .split('T')[0];
 
-  const [financialsSeries, balanceSeries, cashflowSeries, quoteSummary] = await Promise.all([
-    yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: 'annual', module: 'financials' }),
-    yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: 'annual', module: 'balance-sheet' }),
-    yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: 'annual', module: 'cash-flow' }),
-    yf.quoteSummary(symbol, { modules: ['price', 'summaryProfile', 'financialData', 'defaultKeyStatistics'] }),
-  ]);
+  console.log("Fetching Quote Summary...");
+  const quoteSummary = await yf.quoteSummary(symbol, {
+    modules: ["price", "summaryProfile", "financialData", "defaultKeyStatistics"],
+  });
+  console.log("✅ Quote Summary OK");
+
+  console.log("Fetching Financials...");
+  const financialsSeries = await yf.fundamentalsTimeSeries(symbol, {
+    period1: fiveYearsAgo,
+    type: "annual",
+    module: "financials",
+  });
+  console.log("✅ Financials OK");
+
+  console.log("Fetching Balance Sheet...");
+  const balanceSeries = await yf.fundamentalsTimeSeries(symbol, {
+    period1: fiveYearsAgo,
+    type: "annual",
+    module: "balance-sheet",
+  });
+  console.log("✅ Balance Sheet OK");
+
+  console.log("Fetching Cash Flow...");
+  const cashflowSeries = await yf.fundamentalsTimeSeries(symbol, {
+    period1: fiveYearsAgo,
+    type: "annual",
+    module: "cash-flow",
+  });
+  console.log("✅ Cash Flow OK");
 
   const priceData = quoteSummary.price || {};
   const profile = quoteSummary.summaryProfile || {};
