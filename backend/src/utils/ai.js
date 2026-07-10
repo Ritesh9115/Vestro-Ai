@@ -3,10 +3,8 @@ const config = require('../config/config');
 
 const MODELS = [
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-3.0-flash'
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
 ];
 
 /**
@@ -58,6 +56,7 @@ async function callGemini(prompt, options = {}) {
       
       const shouldRetry = 
         msg.includes('429') || 
+        msg.includes('404') ||
         msg.includes('503') || 
         msg.includes('Service Unavailable') || 
         msg.includes('RESOURCE_EXHAUSTED') || 

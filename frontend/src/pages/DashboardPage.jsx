@@ -34,7 +34,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (symbol) {
-      runResearch(symbol)
+      const decoded = decodeURIComponent(symbol)
+      runResearch(decoded)
       setActiveTab('overview')
     }
   }, [symbol])

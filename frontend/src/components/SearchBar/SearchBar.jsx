@@ -21,13 +21,13 @@ export default function SearchBar({ large = false, onSearch }) {
   function goToResearch(symbol) {
     setInputValue(symbol)
     if (onSearch) onSearch(symbol)
-    navigate(`/research/${symbol}`)
+    navigate(`/research/${encodeURIComponent(symbol)}`)
   }
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!inputValue.trim()) return
-    const symbol = inputValue.trim().toUpperCase()
+    const symbol = inputValue.trim()
     goToResearch(symbol)
   }
 

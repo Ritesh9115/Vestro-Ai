@@ -476,7 +476,8 @@ const runResearch = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Stock symbol is required.' });
   }
 
-  const cleanSymbol = symbol.toUpperCase().trim();
+  const rawSymbol = symbol.trim();
+  const cleanSymbol = decodeURIComponent(rawSymbol).toUpperCase().trim();
 
   let matchResolution = {
     query: cleanSymbol,
@@ -568,7 +569,7 @@ const runResearch = asyncHandler(async (req, res) => {
 
     const searchTarget = finalSearchSymbol || cleanSymbol;
     try {
-      if (!finalSearchSymbol && !matchResolution.symbol) throw new Error("Force Fallback");
+      if (!finalSearchSymbol) throw new Error('No symbol found, trying FMP');
       const yahooData = await fetchFromYahoo(searchTarget);
       company = yahooData.company;
       incomeStatements = yahooData.incomeStatements;
