@@ -151,148 +151,23 @@ function buildFinancialSummary(incomeStatements, balanceSheets, cashFlows, ratio
   };
 }
 
-async function fetchFromYahoo(symbol) {
-  const fiveYearsAgo = new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-  console.log("Fetching Quote Summary...");
-  let quoteSummary;
-  try {
-    quoteSummary = await yf.quoteSummary(symbol, {
-      modules: ["price", "summaryProfile", "financialData", "defaultKeyStatistics"],
-    });
-    console.log("✓ Loaded");
-  } catch (err) {
-    throw new Error(`Quote Summary Failed: ${err.message}`);
-  }
-
-  const [incomeRes, balanceRes, cashRes] = await Promise.allSettled([
-    (async () => {
-      console.log("Fetching Income Statement...");
-      const res = await yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: "annual", module: "financials" });
-      console.log("✓ Loaded");
-      return res;
-    })(),
-    (async () => {
-      console.log("Fetching Balance Sheet...");
-      const res = await yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: "annual", module: "balance-sheet" });
-      console.log("✓ Loaded");
-      return res;
-    })(),
-    (async () => {
-      console.log("Fetching Cash Flow...");
-      const res = await yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: "annual", module: "cash-flow" });
-      console.log("✓ Loaded");
-      return res;
-    })()
-  ]);
-
-  if (incomeRes.status === 'rejected' && balanceRes.status === 'rejected' && cashRes.status === 'rejected') {
-    throw new Error("Yahoo financial statements unavailable");
-  }
-
-  let financialsSeries = incomeRes.status === 'fulfilled' ? incomeRes.value || [] : [];
-  let balanceSeries = balanceRes.status === 'fulfilled' ? balanceRes.value || [] : [];
-  let cashflowSeries = cashRes.status === 'fulfilled' ? cashRes.value || [] : [];
-
-  if (!financialsSeries || financialsSeries.length === 0) {
-    throw new Error("Yahoo Income Statement unavailable");
-  }
-  if (!balanceSeries || balanceSeries.length === 0) {
-    console.log("⚠ Balance Sheet is empty");
-  }
-  if (!cashflowSeries || cashflowSeries.length === 0) {
-    console.log("⚠ Cash Flow is empty");
-  }
-
-  const sortByDateDesc = (a, b) => new Date(b.asOfDate || b.date) - new Date(a.asOfDate || a.date);
-  
-  financialsSeries.sort(sortByDateDesc);
-  balanceSeries.sort(sortByDateDesc);
-  cashflowSeries.sort(sortByDateDesc);
-
-  const priceData = quoteSummary.price || {};
-  const profile = quoteSummary.summaryProfile || {};
-  const financialData = quoteSummary.financialData || {};
-  const keyStats = quoteSummary.defaultKeyStatistics || {};
-
-  const company = {
-    symbol: priceData.symbol || symbol,
-    name: priceData.longName || priceData.shortName || symbol,
-    sector: profile.sector || null,
-    industry: profile.industry || null,
-    exchange: priceData.exchangeName || null,
-    marketCap: safeNumber(priceData.marketCap),
-    price: safeNumber(priceData.regularMarketPrice),
-    change: safeNumber(priceData.regularMarketChange),
-    changePercent: safeNumber(priceData.regularMarketChangePercent),
-    description: profile.longBusinessSummary || null,
-    website: profile.website || null,
-    ceo: null,
-    employees: safeNumber(profile.fullTimeEmployees),
-    country: profile.country || null,
-    image: null,
-  };
-
-  const incomeStatements = financialsSeries.map((stmt) => ({
-    date: stmt.asOfDate || stmt.date ? new Date(stmt.asOfDate || stmt.date).toISOString().split('T')[0] : null,
-    calendarYear: stmt.asOfDate || stmt.date ? new Date(stmt.asOfDate || stmt.date).getFullYear() : null,
-    revenue: safeNumber(stmt.totalRevenue),
-    grossProfit: safeNumber(stmt.grossProfit),
-    operatingIncome: safeNumber(stmt.operatingIncome || stmt.EBIT),
-    netIncome: safeNumber(stmt.netIncome),
-    ebitda: safeNumber(stmt.EBITDA || stmt.normalizedEBITDA),
-    eps: safeNumber(stmt.basicEPS || stmt.dilutedEPS),
-    interestExpense: safeNumber(stmt.interestExpense),
-  }));
-
-  const balanceSheets = balanceSeries.map((stmt) => ({
-    totalDebt: safeNumber(stmt.totalDebt),
-    totalStockholdersEquity: safeNumber(stmt.stockholdersEquity || stmt.commonStockEquity),
-    totalAssets: safeNumber(stmt.totalAssets),
-    totalCurrentAssets: safeNumber(stmt.currentAssets),
-    totalCurrentLiabilities: safeNumber(stmt.currentLiabilities),
-  }));
-
-  const cashFlows = cashflowSeries.map((stmt) => ({
-    operatingCashFlow: safeNumber(stmt.operatingCashFlow),
-    freeCashFlow: safeNumber(stmt.freeCashFlow),
-    capitalExpenditure: safeNumber(stmt.capitalExpenditure),
-  }));
-
-  const ratios = [
-    {
-      returnOnEquity: safeNumber(financialData.returnOnEquity),
-      returnOnAssets: safeNumber(financialData.returnOnAssets),
-      debtEquityRatio: keyStats.debtToEquity != null
-        ? safeNumber(keyStats.debtToEquity) / 100
-        : null,
-      currentRatio: safeNumber(financialData.currentRatio),
-      interestCoverage: null,
-    },
-  ];
-
-  const keyMetrics = [
-    {
-      peRatio: safeNumber(priceData.trailingPE) || safeNumber(keyStats.trailingPE),
-      pbRatio: safeNumber(keyStats.priceToBook),
-      pegRatio: safeNumber(keyStats.pegRatio),
-    },
-  ];
-
-  return { company, incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics };
-}
-
 function normalizeFMPSymbol(symbol) {
   if (!symbol) return symbol;
   return symbol.replace(/\.NS$/i, '').replace(/\.BO$/i, '').toUpperCase().trim();
 }
 
 async function fetchFmpEndpoint(name, endpoint, symbol, key, limit = 1) {
+  console.log(`Fetching ${name}...`);
   const url = `https://financialmodelingprep.com/stable/${endpoint}?symbol=${symbol}&apikey=${key}${limit ? `&limit=${limit}` : ''}`;
   try {
     const res = await axios.get(url, { timeout: 10000 });
+    console.log(`✓ Success`);
     return res.data;
   } catch (err) {
+    console.log(`❌ Failed`);
+    console.log(`URL: ${url.replace(key, 'HIDDEN_KEY')}`);
+    console.log(`HTTP Status: ${err.response?.status}`);
+    console.log(`Response Body:`, err.response?.data);
     throw err;
   }
 }
@@ -300,7 +175,9 @@ async function fetchFmpEndpoint(name, endpoint, symbol, key, limit = 1) {
 async function fetchFromFMP(symbol) {
   const key = config.fmpKey;
   const normalizedSymbol = normalizeFMPSymbol(symbol);
-  
+
+  console.log(`Normalized Symbol:\n${normalizedSymbol}\n↓`);
+
   const profileDataArr = await fetchFmpEndpoint('Company Profile', 'profile', normalizedSymbol, key, null);
   const profileData = profileDataArr?.[0];
   if (!profileData) throw new Error('Company not found via FMP');
@@ -477,7 +354,7 @@ async function verifyCompanyName(companyName) {
       return bestQuote.symbol.toUpperCase();
     }
   } catch (e) {
-    console.log(`Yahoo Search verification failed: ${e.message}`);
+    console.log(`Yahoo Search verification failed for "${companyName}":`, e.message);
   }
 
   if (config.fmpKey) {
@@ -489,7 +366,7 @@ async function verifyCompanyName(companyName) {
         return sortedFmp[0].symbol;
       }
     } catch (e) {
-      console.log(`FMP Search verification failed: ${e.message}`);
+      console.log(`FMP Search verification failed for "${companyName}":`, e.message);
     }
   }
   return null;
@@ -540,7 +417,7 @@ Output:`;
       return parsed;
     }
   } catch (e) {
-    console.log(`AI resolution failed: ${e.message}`);
+    console.error(`AI company resolution failed:`, e.message);
   }
   return null;
 }
@@ -566,7 +443,7 @@ const runResearch = asyncHandler(async (req, res) => {
   let company, incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics;
 
   console.log(`\nSearching Company...`);
-  
+
   let finalSearchSymbol = null;
   let verifiedName = cleanSymbol;
 
@@ -594,7 +471,7 @@ const runResearch = asyncHandler(async (req, res) => {
         verifiedName = matchResolution.name;
       }
     } catch (searchErr) {
-      console.log(`Search variant failed: ${searchErr.message}`);
+      console.log(`Yahoo Search failed for "${queryVariant}":`, searchErr.message);
     }
   }
 
@@ -624,37 +501,40 @@ const runResearch = asyncHandler(async (req, res) => {
             };
           }
         } catch (aiSearchErr) {
-          console.log(`AI Search variant failed: ${aiSearchErr.message}`);
+          console.log(`Yahoo Verification failed for AI resolution "${queryVariant}":`, aiSearchErr.message);
         }
       }
     }
   }
 
   let searchTarget = finalSearchSymbol;
-  
-  if (!finalSearchSymbol) {
-     if (config.fmpKey) {
-        const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(verifiedName)}&limit=5&apikey=${config.fmpKey}`;
-        try {
-          const fmpSearchRes = await axios.get(fmpSearchUrl, { timeout: 8000 });
-          const sortedFmp = sortFMPResults(fmpSearchRes.data || []);
-          if (sortedFmp.length > 0) {
-            searchTarget = sortedFmp[0].symbol;
-            matchResolution.symbol = searchTarget;
-            matchResolution.name = sortedFmp[0].name;
-            matchResolution.matchReason = matchResolution.matchReason || 'Resolved via fallback search.';
-          }
-        } catch(e) {
-          console.log(`Fallback FMP search failed: ${e.message}`);
+
+  if (finalSearchSymbol) {
+    console.log(`✓ Yahoo Search Success`);
+    console.log(`Resolved Symbol:\n${finalSearchSymbol}\n↓`);
+  } else {
+    console.log(`❌ Yahoo Search failed to resolve symbol.`);
+    console.log(`Attempting fallback FMP search...`);
+    if (config.fmpKey) {
+      const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(verifiedName)}&limit=5&apikey=${config.fmpKey}`;
+      try {
+        const fmpSearchRes = await axios.get(fmpSearchUrl, { timeout: 8000 });
+        const sortedFmp = sortFMPResults(fmpSearchRes.data || []);
+        if (sortedFmp.length > 0) {
+          searchTarget = sortedFmp[0].symbol;
+          matchResolution.symbol = searchTarget;
+          matchResolution.name = sortedFmp[0].name;
+          matchResolution.matchReason = matchResolution.matchReason || 'Resolved via fallback search.';
+          console.log(`✓ FMP Search Success: ${searchTarget}\n↓`);
         }
-     }
-  }
-  
-  if (!searchTarget) {
-     throw createError(`Company not found.`, 404);
+      } catch (e) { }
+    }
   }
 
-  console.log("Trying FMP Financials...");
+  if (!searchTarget) {
+    throw createError(`Company not found.`, 404);
+  }
+
   try {
     const fmpData = await fetchFromFMP(searchTarget);
     company = fmpData.company;
@@ -663,22 +543,12 @@ const runResearch = asyncHandler(async (req, res) => {
     cashFlows = fmpData.cashFlows;
     ratios = fmpData.ratios;
     keyMetrics = fmpData.keyMetrics;
-    console.log("✓ FMP Success");
   } catch (err) {
-    console.log("⚠ FMP Failed");
-    console.log(`Reason: ${err.message}`);
-    console.log("Switching to Yahoo...");
-    try {
-      const yahooData = await fetchFromYahoo(searchTarget);
-      company = yahooData.company;
-      incomeStatements = yahooData.incomeStatements;
-      balanceSheets = yahooData.balanceSheets;
-      cashFlows = yahooData.cashFlows;
-      ratios = yahooData.ratios;
-      keyMetrics = yahooData.keyMetrics;
-    } catch (yahooErr) {
-      throw createError(`Company found successfully, but financial statements are currently unavailable from all providers. (${yahooErr.message})`, 404);
-    }
+    throw createError(`Company found successfully,\nbut financial statements are currently unavailable.`, 404);
+  }
+
+  if (!incomeStatements || incomeStatements.length === 0) {
+    throw createError(`Located "${cleanSymbol}", but no financial data is available to analyze.`, 404);
   }
 
   console.log("Building Financial Summary...");
@@ -687,16 +557,12 @@ const runResearch = asyncHandler(async (req, res) => {
   let news = [];
   try {
     news = await fetchNews(company.name, company.symbol);
-  } catch(e) {
-    console.log(`Fetch News failed: ${e.message}`);
-  }
+  } catch (e) { }
 
   let peers = [];
   try {
     peers = await fetchPeers(company.symbol);
-  } catch(e) {
-    console.log(`Fetch Peers failed: ${e.message}`);
-  }
+  } catch (e) { }
 
   console.log("Generating AI Analysis...");
   const aiAnalysis = await generateGeminiAnalysis(company, financials, news, peers);
