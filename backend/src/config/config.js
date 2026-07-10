@@ -5,6 +5,10 @@ const config = {
   newsApiKey: process.env.NEWS_API_KEY || '',
   geminiKey: process.env.GEMINI_API_KEY || '',
   nodeEnv: process.env.NODE_ENV || 'development',
+  proxyHost: process.env.PROXY_HOST,
+  proxyPort: process.env.PROXY_PORT,
+  proxyUsername: process.env.PROXY_USERNAME,
+  proxyPassword: process.env.PROXY_PASSWORD,
 };
 
 module.exports = config;
