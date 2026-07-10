@@ -1,30 +1,17 @@
-const YahooFinance = require("yahoo-finance2").default;
-const { ProxyAgent } = require("undici");
 
-const proxy = new ProxyAgent(
-  "http://ulzjeywo:3ql39155i2he@142.111.67.146:5611"
-);
+const { fetch, ProxyAgent } = require("undici");
 
-const yf = new YahooFinance({
-  suppressNotices: ["yahooSurvey"],
-
-  fetch: (input, init = {}) => {
-    console.log("Yahoo Request:", input);
-
-    return fetch(input, {
-      ...init,
-      dispatcher: proxy,
-    });
-  },
+const proxyAgent = new ProxyAgent({
+  uri: "http://ulzjeywo:3ql39155i2he@142.111.67.146:5611",
 });
 
 (async () => {
   try {
-    const data = await yf.quoteSummary("AAPL", {
-      modules: ["price"],
+    const res = await fetch("https://httpbin.org/ip", {
+      dispatcher: proxyAgent,
     });
 
-    console.dir(data, { depth: null });
+    console.log(await res.text());
   } catch (e) {
     console.error(e);
   }
