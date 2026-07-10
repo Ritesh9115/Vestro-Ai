@@ -29,10 +29,8 @@ function findBestYahooQuote(quotes) {
   const filtered = quotes.filter((q) => {
     if (!q.symbol) return false;
 
-    // Ignore mutual funds, ETFs, indexes, etc.
     if (q.quoteType !== "EQUITY") return false;
 
-    // Ignore Yahoo fund symbols
     if (q.symbol.startsWith("0P")) return false;
 
     return true;
@@ -42,16 +40,13 @@ function findBestYahooQuote(quotes) {
     const score = (q) => {
       let s = 0;
 
-      // Prefer NSE stocks
       if (q.symbol?.endsWith(".NS")) s += 100;
 
-      // Then BSE stocks
       if (q.symbol?.endsWith(".BO")) s += 80;
 
       if (q.exchange === "NSI") s += 50;
       if (q.exchange === "BSE") s += 40;
 
-      // Exact company name match
       if (q.longname) s += 10;
 
       return s;
@@ -189,21 +184,15 @@ async function fetchFromYahoo(symbol) {
 
   const [incomeRes, balanceRes, cashRes] = await Promise.allSettled([
     (async () => {
-      console.log("Fetching Income Statement...");
       const res = await yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: "annual", module: "financials" });
-      console.log("✓ Loaded");
       return res;
     })(),
     (async () => {
-      console.log("Fetching Balance Sheet...");
       const res = await yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: "annual", module: "balance-sheet" });
-      console.log("✓ Loaded");
       return res;
     })(),
     (async () => {
-      console.log("Fetching Cash Flow...");
       const res = await yf.fundamentalsTimeSeries(symbol, { period1: fiveYearsAgo, type: "annual", module: "cash-flow" });
-      console.log("✓ Loaded");
       return res;
     })()
   ]);
@@ -215,30 +204,12 @@ async function fetchFromYahoo(symbol) {
   let financialsSeries = incomeRes.status === 'fulfilled' ? incomeRes.value || [] : [];
   let balanceSeries = balanceRes.status === 'fulfilled' ? balanceRes.value || [] : [];
   let cashflowSeries = cashRes.status === 'fulfilled' ? cashRes.value || [] : [];
-  console.log("========== INCOME RESULT ==========");
-  console.dir(incomeRes, { depth: null });
-
-  console.log("========== VALUE ==========");
-  console.dir(incomeRes.value, { depth: null });
-
-  console.log("========== TYPE ==========");
-  console.log(typeof incomeRes.value);
-
-  console.log("========== IS ARRAY ==========");
-  console.log(Array.isArray(incomeRes.value));
-  console.log("Yahoo Symbol =", symbol);
-  console.log("Period =", fiveYearsAgo);
   const debug = await yf.fundamentalsTimeSeries(symbol, {
     period1: "2020-01-01",
     type: "annual",
     module: "financials",
   });
 
-  console.log("========== DIRECT TEST ==========");
-  console.dir(debug, { depth: 1 });
-  if (Array.isArray(incomeRes.value)) {
-    console.log("LENGTH:", incomeRes.value.length);
-  }
   if (!financialsSeries || financialsSeries.length === 0) {
     throw new Error("Yahoo Income Statement unavailable");
   }

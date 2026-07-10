@@ -4,8 +4,9 @@ const config = require('../config/config');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { asyncHandler } = require('../utils/errors');
 
-const proxyAgent = new HttpsProxyAgent('http://ulzjeywo:3ql39155i2he@142.111.67.146:5611');
-
+const proxyAgent = new HttpsProxyAgent(
+  `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
+);
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 const originalFetch = yf._env.fetch;
 
@@ -21,7 +22,9 @@ yf._env.fetch = (url, init = {}) => {
 function sortYahooQuotes(quotes) {
   if (!quotes || quotes.length === 0) return [];
   return quotes
-    .filter((q) => !!q.symbol)
+    .filter((q) => !!q.symbol&&
+    q.quoteType === "EQUITY" &&
+    !q.symbol.startsWith("0P"))
     .sort((a, b) => {
       const aIsIndia = a.exchange === 'NSI' || a.exchange === 'BSE' || a.symbol.endsWith('.NS') || a.symbol.endsWith('.BO');
       const bIsIndia = b.exchange === 'NSI' || b.exchange === 'BSE' || b.symbol.endsWith('.NS') || b.symbol.endsWith('.BO');
