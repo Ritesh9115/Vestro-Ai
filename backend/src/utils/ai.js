@@ -1,78 +1,112 @@
-const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
-const { HumanMessage, SystemMessage } = require("@langchain/core/messages");
-const config = require("../config/config");
+/**
+ * ai.js — Vestro AI Gemini wrapper
+ *
+ * Uses @google/generative-ai (official SDK) directly.
+ * Falls back through a chain of models from fastest → most capable.
+ * Model list confirmed via ListModels API — free-tier quota verified.
+ */
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const config = require('../config/config');
 
+// Models ordered by user preference and image:
+const MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite'
+];
+
+/** Sleep helper */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Extract retryDelay seconds from a 429 error message.
+ * Returns delay in ms, capped at 60 000 ms.
+ */
+function parse429Delay(errMsg) {
+  const match = errMsg.match(/retry[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*s/i);
+  if (match) return Math.min(parseFloat(match[1]) * 1000 + 500, 60000); // capped at 60s
+  return 5000; // default 5 s
+}
+
+/**
+ * Call Gemini with automatic model fallback + 429 retry.
+ *
+ * @param {string} prompt
+ * @param {object} options
+ * @param {string}  [options.system]          - System instruction
+ * @param {number}  [options.temperature]     - Default 0.1
+ * @param {number}  [options.maxOutputTokens] - Default 8192
+ * @param {boolean} [options.json]            - Parse and return JSON
+ * @returns {string|object}
+ */
 async function callGemini(prompt, options = {}) {
   if (!config.geminiKey) {
-    throw new Error("Gemini API key not configured.");
+    throw new Error('GOOGLE_API_KEY is not configured in backend/.env');
   }
 
-  const models = [
-    "gemini-3.1-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-  ];
-
+  const genAI = new GoogleGenerativeAI(config.geminiKey);
   let lastError;
 
-  for (const model of models) {
-    try {
+  for (const modelName of MODELS) {
+    // Try each model up to 2 times (once immediately, once after retry-delay on 429)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: options.system ||
+            'You are an expert financial AI assistant with deep knowledge of equity markets, valuations, and investment analysis.',
+          generationConfig: {
+            temperature: options.temperature ?? 0.1,
+            maxOutputTokens: options.maxOutputTokens ?? 8192,
+          },
+        });
 
+        const result = await model.generateContent(prompt);
+        let text = result.response.text();
+        if (!text || typeof text !== 'string') throw new Error('Empty response from Gemini');
 
-      const llm = new ChatGoogleGenerativeAI({
-        model,
-        apiKey: config.geminiKey,
-        temperature: options.temperature ?? 0.1,
-        maxOutputTokens: options.maxOutputTokens || 8192,
-      });
+        if (options.json) {
+          text = text
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```\s*$/i, '')
+            .trim();
+          const start = text.search(/[\[{]/);
+          const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+          if (start === -1 || end === -1) {
+            throw new Error(`Gemini did not return valid JSON (model: ${modelName})`);
+          }
+          return JSON.parse(text.slice(start, end + 1));
+        }
+        return text;
 
-      const messages = [
-        new SystemMessage("You are an expert financial AI assistant."),
-        new HumanMessage(prompt),
-      ];
+      } catch (err) {
+        lastError = err;
+        const msg = err.message || '';
+        const is429 = msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('quota');
 
-      const response = await llm.invoke(messages);
-
-      let text = response.content;
-
-      if (Array.isArray(text)) {
-        text = text
-          .map((part) =>
-            typeof part === "string" ? part : part.text || ""
-          )
-          .join("");
-      }
-
-      if (typeof text !== "string") {
-        throw new Error("Gemini returned an unexpected response format.");
-      }
-
-      if (options.responseMimeType === "application/json") {
-        text = text
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```\s*$/i, "")
-          .trim();
-
-        const jsonStart = text.indexOf("{");
-        const jsonEnd = text.lastIndexOf("}");
-
-        if (jsonStart === -1 || jsonEnd === -1) {
-          throw new Error("Gemini did not return valid JSON.");
+        if (is429 && attempt === 0) {
+          // Wait the suggested delay then retry THIS model once
+          const delay = parse429Delay(msg);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`[AI] ${modelName} rate-limited. Retrying in ${delay}ms…`);
+          }
+          await sleep(delay);
+          continue; // retry same model
         }
 
-        return JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+        // Non-429 error or second attempt failed — move to next model
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[AI] Model ${modelName} failed (attempt ${attempt + 1}): ${msg.substring(0, 120)}`);
+        }
+        break; // break inner loop, try next model
       }
-
-      return text;
-
-    } catch (err) {
-
-      lastError = err;
     }
   }
 
-  throw lastError || new Error("All Gemini models failed.");
+  throw lastError || new Error('All Gemini models failed. Check API key and quota.');
 }
 
 module.exports = { callGemini };

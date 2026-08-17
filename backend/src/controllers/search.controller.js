@@ -1,30 +1,32 @@
-const axios = require('axios');
 const YahooFinance = require('yahoo-finance2').default;
 const config = require('../config/config');
-const { HttpsProxyAgent } = require('https-proxy-agent');
 const { asyncHandler } = require('../utils/errors');
+const { fetch: undiciFetch, ProxyAgent } = require('undici');
 
-const proxyAgent = new HttpsProxyAgent(
-  `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
-);
-const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
-const originalFetch = yf._env.fetch;
+// ─── Proxy setup (same pattern as research.controller.js) ────────────────────
+const hasProxy = config.proxyHost && config.proxyPort && config.proxyUsername && config.proxyPassword;
 
-yf._env.fetch = (url, init = {}) => {
-  return originalFetch(url, {
-    ...init,
-    dispatcher: proxyAgent,
+let proxyFetch;
+if (hasProxy) {
+  const proxyAgent = new ProxyAgent({
+    uri: `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`,
   });
-};
+  proxyFetch = (url, options = {}) => undiciFetch(url, { ...options, dispatcher: proxyAgent });
+} else {
+  proxyFetch = (url, options = {}) => undiciFetch(url, options);
+}
 
-
+// Yahoo Finance instance using the same fetch/proxy as research controller
+const yf = new YahooFinance({
+  suppressNotices: ['yahooSurvey'],
+  fetch: proxyFetch,
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 function sortYahooQuotes(quotes) {
   if (!quotes || quotes.length === 0) return [];
   return quotes
-    .filter((q) => !!q.symbol&&
-    q.quoteType === "EQUITY" &&
-    !q.symbol.startsWith("0P"))
+    .filter((q) => !!q.symbol && q.quoteType === 'EQUITY' && !q.symbol.startsWith('0P'))
     .sort((a, b) => {
       const aIsIndia = a.exchange === 'NSI' || a.exchange === 'BSE' || a.symbol.endsWith('.NS') || a.symbol.endsWith('.BO');
       const bIsIndia = b.exchange === 'NSI' || b.exchange === 'BSE' || b.symbol.endsWith('.NS') || b.symbol.endsWith('.BO');
@@ -34,17 +36,11 @@ function sortYahooQuotes(quotes) {
     });
 }
 
-function sortFMPResults(results) {
-  if (!results || results.length === 0) return [];
-  return results.sort((a, b) => {
-    const aIsIndia = a.exchangeShortName === 'NSE' || a.exchangeShortName === 'BSE';
-    const bIsIndia = b.exchangeShortName === 'NSE' || b.exchangeShortName === 'BSE';
-    if (aIsIndia && !bIsIndia) return -1;
-    if (!aIsIndia && bIsIndia) return 1;
-    return 0;
-  });
-}
-
+/**
+ * GET /api/search?q=<query>
+ * Returns matching equities from Yahoo Finance.
+ * Falls back to a direct Yahoo Finance quote lookup if search fails.
+ */
 const searchCompany = asyncHandler(async (req, res) => {
   const { q } = req.query;
   if (!q || q.trim().length < 1) {
@@ -54,9 +50,10 @@ const searchCompany = asyncHandler(async (req, res) => {
   const cleanQuery = q.trim();
   let results = [];
 
+  // ── Primary: Yahoo Finance search ─────────────────────────────────────────
   try {
     const yahooResults = await yf.search(cleanQuery);
-    const sortedQuotes = sortYahooQuotes(yahooResults?.quotes);
+    const sortedQuotes = sortYahooQuotes(yahooResults?.quotes || []);
     results = sortedQuotes.map((item) => ({
       symbol: item.symbol,
       name: item.longname || item.shortname || item.symbol,
@@ -64,30 +61,39 @@ const searchCompany = asyncHandler(async (req, res) => {
       type: item.quoteType || 'EQUITY',
     }));
   } catch (err) {
-    console.log(`Yahoo Search failed for "${cleanQuery}":`, err.message);
-    results = [];
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[Search] Yahoo search failed for "${cleanQuery}":`, err.message);
+    }
   }
 
-  if (results.length === 0 && config.fmpKey) {
-    try {
-      const url = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(cleanQuery)}&limit=5&apikey=${config.fmpKey}`;
-      const response = await axios.get(url, { timeout: 8000 });
-      const sortedFmp = sortFMPResults(response.data || []);
-      results = sortedFmp.map((item) => ({
-        symbol: item.symbol,
-        name: item.name,
-        exchange: item.exchangeShortName,
-        type: item.type,
-      }));
-    } catch (err) {
-      console.log(`FMP Search failed for "${cleanQuery}":`, err.message);
-      results = [];
+  // ── Fallback: treat query as a direct symbol and try to quote it ───────────
+  if (results.length === 0) {
+    const candidates = [
+      cleanQuery.toUpperCase(),                    // e.g. AAPL
+      `${cleanQuery.toUpperCase()}.NS`,             // NSE
+      `${cleanQuery.toUpperCase()}.BO`,             // BSE
+    ];
+
+    for (const sym of candidates) {
+      try {
+        const quote = await yf.quoteSummary(sym, { modules: ['price'] });
+        const p = quote?.price;
+        if (p && p.quoteType === 'EQUITY') {
+          results.push({
+            symbol: sym,
+            name: p.longName || p.shortName || sym,
+            exchange: p.exchangeName || '',
+            type: 'EQUITY',
+          });
+          break; // Found one valid match — stop
+        }
+      } catch { /* not a valid symbol — continue */ }
     }
   }
 
   if (results.length === 0) {
     return res.status(404).json({
-      error: `Whoops! We scanned the entire financial galaxy, but couldn't find any stock matching "${cleanQuery}". Your spelling might be slightly off, or this stock is hiding from public exchanges. Double-check and try again! 🚀`
+      error: `No stock found matching "${cleanQuery}". Try using the exact ticker symbol (e.g. AAPL, RELIANCE.NS).`,
     });
   }
 

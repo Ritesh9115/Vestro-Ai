@@ -1,0 +1,57 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push Docker images
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/vestro-backend:${{ github.sha }} ./backend
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/vestro-frontend:${{ github.sha }} ./frontend
+          docker push ${{ secrets.DOCKER_USERNAME }}/vestro-backend:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/vestro-frontend:${{ github.sha }}
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /opt/vestro
+            # Pull latest images
+            docker pull ${{ secrets.DOCKER_USERNAME }}/vestro-backend:${{ github.sha }}
+            docker pull ${{ secrets.DOCKER_USERNAME }}/vestro-frontend:${{ github.sha }}
+
+            # Update compose with new image tags
+            export BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/vestro-backend:${{ github.sha }}
+            export FRONTEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/vestro-frontend:${{ github.sha }}
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            export GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            export MONGO_USERNAME=${{ secrets.MONGO_USERNAME }}
+            export MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+            export FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            export CLIENT_URL=${{ secrets.CLIENT_URL }}
+            export EMAIL_USER=${{ secrets.EMAIL_USER }}
+            export EMAIL_PASS=${{ secrets.EMAIL_PASS }}
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Health check
+            sleep 15
+            curl -f http://localhost:3001/api/health || exit 1
+            echo "✓ Deployment successful"

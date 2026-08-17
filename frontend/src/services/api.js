@@ -1,9 +1,11 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
   timeout: 120000,
+  withCredentials: false,
 })
+
 
 export async function fetchResearch(symbol) {
   const response = await api.get(`/api/research/${symbol}`)

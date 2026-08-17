@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react'
 import VerdictBadge from '../VerdictBadge/VerdictBadge'
 
-export default function CompanyHeader({ company, aiAnalysis }) {
+export default function CompanyHeader({ company, aiAnalysis, onSaveReport, onAddToWatchlist, onInvestClick }) {
   const [isExpanded, setIsExpanded] = useState(false)
   if (!company) return null
 
@@ -105,10 +105,47 @@ export default function CompanyHeader({ company, aiAnalysis }) {
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 gap: 4,
+                marginBottom: 12,
               }}
             >
               {changePositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
               {changeText} today
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button 
+                onClick={onAddToWatchlist}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', background: '#FBF4E8', color: '#B8862E',
+                  border: '1px solid #F3E4C8', borderRadius: 8, fontSize: '0.75rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: "'Inter', sans-serif"
+                }}
+              >
+                + Watchlist
+              </button>
+              <button 
+                onClick={onInvestClick}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', background: '#F5F7F4', color: '#0F211A',
+                  border: '1px solid #E5E8E2', borderRadius: 8, fontSize: '0.75rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: "'Inter', sans-serif"
+                }}
+              >
+                + Portfolio
+              </button>
+              <button 
+                onClick={onSaveReport}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', background: '#E4F5EC', color: '#0E8F5B',
+                  border: '1px solid #C3E8D5', borderRadius: 8, fontSize: '0.75rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: "'Inter', sans-serif"
+                }}
+              >
+                Save Report
+              </button>
             </div>
           </div>
         </div>

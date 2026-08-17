@@ -4,24 +4,49 @@ const config = require('../config/config');
 const { asyncHandler, createError } = require('../utils/errors');
 const { safeNumber, calculateGrowthRate } = require('../utils/format');
 const { callGemini } = require('../utils/ai');
+const ResearchHistory = require('../models/ResearchHistory');
+const { updateAnalyticsOnResearch } = require('./analytics.controller');
 
-const { fetch, ProxyAgent } = require("undici");
+const { fetch: undiciFetch, ProxyAgent } = require('undici');
 
-const proxyAgent = new ProxyAgent({
-  uri: `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`
-});
+// ─── In-memory research cache (15 min TTL) ────────────────────────────────────
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const researchCache = new Map(); // symbol → { data, expiresAt }
 
-const proxyFetch = (url, options = {}) => {
-  return fetch(url, {
-    ...options,
-    dispatcher: proxyAgent,
+function getCached(symbol) {
+  const entry = researchCache.get(symbol?.toUpperCase());
+  if (entry && Date.now() < entry.expiresAt) return entry.data;
+  researchCache.delete(symbol?.toUpperCase());
+  return null;
+}
+
+function setCached(symbol, data) {
+  researchCache.set(symbol?.toUpperCase(), { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  // Cap cache at 50 entries
+  if (researchCache.size > 50) {
+    const firstKey = researchCache.keys().next().value;
+    researchCache.delete(firstKey);
+  }
+}
+
+// Only use proxy if all proxy env vars are configured
+const hasProxy = config.proxyHost && config.proxyPort && config.proxyUsername && config.proxyPassword;
+
+let proxyFetch;
+if (hasProxy) {
+  const proxyAgent = new ProxyAgent({
+    uri: `http://${config.proxyUsername}:${config.proxyPassword}@${config.proxyHost}:${config.proxyPort}`,
   });
-};
+  proxyFetch = (url, options = {}) => undiciFetch(url, { ...options, dispatcher: proxyAgent });
+} else {
+  proxyFetch = (url, options = {}) => undiciFetch(url, options);
+}
 
 const yf = new YahooFinance({
-  suppressNotices: ["yahooSurvey"],
+  suppressNotices: ['yahooSurvey'],
   fetch: proxyFetch,
 });
+
 
 function findBestYahooQuote(quotes) {
   if (!quotes || quotes.length === 0) return null;
@@ -103,8 +128,12 @@ function buildFinancialSummary(incomeStatements, balanceSheets, cashFlows, ratio
   const operatingMargin = revenue && operatingIncome ? (operatingIncome / revenue) * 100 : null;
   const netMargin = revenue && netIncome ? (netIncome / revenue) * 100 : null;
 
-  const roe = safeNumber(latestRatio.returnOnEquity) * 100;
-  const roa = safeNumber(latestRatio.returnOnAssets) * 100;
+  const roeRatio = safeNumber(latestRatio.returnOnEquity);
+  const roaRatio = safeNumber(latestRatio.returnOnAssets);
+  
+  const roe = roeRatio != null ? roeRatio * 100 : null;
+  const roa = roaRatio != null ? roaRatio * 100 : null;
+  
   const roce =
     totalEquity && totalDebt != null && operatingIncome
       ? (operatingIncome / (totalEquity + totalDebt)) * 100
@@ -129,25 +158,32 @@ function buildFinancialSummary(incomeStatements, balanceSheets, cashFlows, ratio
     }))
     .reverse();
 
-  let healthScore = 50;
+  let healthScore = 55; // Start from 55 (neutral-positive baseline)
   const riskFlags = [];
 
-  if (debtToEquity != null && debtToEquity > 1.5) { healthScore -= 10; riskFlags.push("High Debt to Equity ratio (> 1.5)"); }
-  else if (debtToEquity != null && debtToEquity < 0.5) { healthScore += 5; }
+  if (debtToEquity != null && debtToEquity > 2.0) { healthScore -= 10; riskFlags.push("High Debt to Equity ratio (> 2.0)"); }
+  else if (debtToEquity != null && debtToEquity > 1.5) { healthScore -= 5; riskFlags.push("Elevated Debt to Equity ratio (> 1.5)"); }
+  else if (debtToEquity != null && debtToEquity < 0.5) { healthScore += 8; }
+  else if (debtToEquity != null) { healthScore += 4; }
 
   if (currentRatio != null && currentRatio < 1) { healthScore -= 10; riskFlags.push("Low liquidity: Current Ratio < 1"); }
-  else if (currentRatio != null && currentRatio > 1.5) { healthScore += 5; }
+  else if (currentRatio != null && currentRatio > 1.5) { healthScore += 8; }
+  else if (currentRatio != null) { healthScore += 4; }
 
-  if (roe != null && roe > 15) { healthScore += 10; }
+  if (roe != null && roe > 15) { healthScore += 12; }
+  else if (roe != null && roe > 8) { healthScore += 6; }
   else if (roe != null && roe < 5) { healthScore -= 5; riskFlags.push("Low Return on Equity (< 5%)"); }
 
   if (revenueGrowth != null && revenueGrowth > 10) { healthScore += 10; }
-  else if (revenueGrowth != null && revenueGrowth < 0) { healthScore -= 10; riskFlags.push("Declining YoY Revenue"); }
+  else if (revenueGrowth != null && revenueGrowth > 0) { healthScore += 5; }
+  else if (revenueGrowth != null && revenueGrowth < 0) { healthScore -= 8; riskFlags.push("Declining YoY Revenue"); }
 
   if (netMargin != null && netMargin > 15) { healthScore += 10; }
-  else if (netMargin != null && netMargin < 0) { healthScore -= 15; riskFlags.push("Negative Net Margin (Loss-making)"); }
+  else if (netMargin != null && netMargin > 5) { healthScore += 5; }
+  else if (netMargin != null && netMargin < 0) { healthScore -= 12; riskFlags.push("Negative Net Margin (Loss-making)"); }
 
-  if (freeCashFlow != null && freeCashFlow < 0) { healthScore -= 5; riskFlags.push("Negative Free Cash Flow"); }
+  if (freeCashFlow != null && freeCashFlow > 0) { healthScore += 5; }
+  else if (freeCashFlow != null && freeCashFlow < 0) { healthScore -= 5; riskFlags.push("Negative Free Cash Flow"); }
 
   healthScore = Math.max(0, Math.min(100, healthScore));
 
@@ -379,56 +415,113 @@ async function fetchPeers(symbol) {
 function buildGeminiPrompt(company, financials, news, peers) {
   const headlines = news.slice(0, 5).map(n => n.title).join(' | ');
 
-  return `You are an Explainable AI Investment Research Analyst. Analyse the company data and return a structured JSON verdict.
+  return `You are an Explainable AI Investment Research Analyst. Your role is to produce a rigorous, evidence-based investment verdict.
 
-STRICT RULES:
-- The backend has already calculated base metrics, Health Score (${financials.calculatedHealthScore}/100), and Risk Flags: [${financials.calculatedRiskFlags.join(', ') || 'None'}].
-- Verdict must be exactly: INVEST, WATCH, or SKIP.
-- All monetary values in explanations MUST be in Indian Rupees (INR) using ₹ (e.g. ₹100, ₹10L, ₹5Cr). Never use $.
-- Return ONLY valid JSON.
+CRITICAL RULES:
+- You MUST score all 9 financial dimensions first, THEN derive the verdict. Never decide the verdict before scoring.
+- Verdict MUST be based ONLY on structured data provided. Never hallucinate financial numbers.
+- Verdict must be exactly: INVEST (composite score >=60), WATCH (40-59), or SKIP (<40).
+- Missing data is NOT a red flag — use available data to make a fair assessment.
+- Blue-chip, large-cap, established companies with stable revenue should generally score INVEST unless there are clear red flags.
+- Low confidence should only push you toward WATCH if there are genuine concerns, not just missing data.
+- All monetary values MUST use ₹ (e.g. ₹100, ₹10L, ₹5Cr). Never use $.
+- Return ONLY valid JSON. No markdown fences.
+- Health Score provided by backend: ${financials.calculatedHealthScore}/100
+- Risk Flags: [${financials.calculatedRiskFlags.join(', ') || 'None'}]
 
-COMPANY: ${company.name} (${company.symbol}) | SECTOR: ${company.sector}
-MARKET CAP: ${company.marketCap} | CURRENT PRICE: ${company.price}
+COMPANY: ${company.name} (${company.symbol})
+SECTOR: ${company.sector} | EXCHANGE: ${company.exchange} | MARKET CAP: ${company.marketCap}
+CURRENT PRICE: ${company.price} | DAY CHANGE: ${company.changePercent?.toFixed(2)}%
 
-SUMMARIZED FINANCIALS (FY ${financials.fiscalYear}):
-Revenue: ${financials.revenue} (Growth: ${financials.revenueGrowth?.toFixed(2)}%)
-Net Income: ${financials.netIncome} (Growth: ${financials.profitGrowth?.toFixed(2)}%)
-Margins - Gross: ${financials.grossMargin?.toFixed(2)}%, Operating: ${financials.operatingMargin?.toFixed(2)}%, Net: ${financials.netMargin?.toFixed(2)}%
-Returns - ROE: ${financials.roe?.toFixed(2)}%, ROCE: ${financials.roce?.toFixed(2)}%, ROA: ${financials.roa?.toFixed(2)}%
-Debt/Equity: ${financials.debtToEquity} | Current Ratio: ${financials.currentRatio}
-FCF: ${financials.freeCashFlow}
-Valuation - PE: ${financials.pe}, PB: ${financials.pb}, PEG: ${financials.peg}
+FINANCIAL DATA (FY ${financials.fiscalYear}):
+Revenue: ${financials.revenue} (YoY Growth: ${financials.revenueGrowth?.toFixed(2) ?? 'N/A'}%)
+Net Income: ${financials.netIncome} (YoY Growth: ${financials.profitGrowth?.toFixed(2) ?? 'N/A'}%)
+Gross Margin: ${financials.grossMargin?.toFixed(2) ?? 'N/A'}%
+Operating Margin: ${financials.operatingMargin?.toFixed(2) ?? 'N/A'}%
+Net Margin: ${financials.netMargin?.toFixed(2) ?? 'N/A'}%
+ROE: ${financials.roe?.toFixed(2) ?? 'N/A'}% | ROA: ${financials.roa?.toFixed(2) ?? 'N/A'}% | ROCE: ${financials.roce?.toFixed(2) ?? 'N/A'}%
+Debt/Equity: ${financials.debtToEquity ?? 'N/A'} | Current Ratio: ${financials.currentRatio ?? 'N/A'}
+Free Cash Flow: ${financials.freeCashFlow ?? 'N/A'} | Operating CF: ${financials.operatingCashFlow ?? 'N/A'}
+P/E: ${financials.pe ?? 'N/A'} | P/B: ${financials.pb ?? 'N/A'} | PEG: ${financials.peg ?? 'N/A'}
+EBITDA: ${financials.ebitda ?? 'N/A'} | Total Debt: ${financials.totalDebt ?? 'N/A'} | Total Equity: ${financials.totalEquity ?? 'N/A'}
+EPS Growth: ${financials.epsGrowth?.toFixed(2) ?? 'N/A'}%
 
 RECENT NEWS: ${headlines || 'No recent news.'}
 PEER COMPANIES: ${peers.slice(0, 6).join(', ') || 'Not available'}
-DESCRIPTION: ${company.description?.slice(0, 200) || 'Not available'}
+BUSINESS DESCRIPTION: ${company.description?.slice(0, 300) || 'Not available'}
 
-Return exactly this JSON structure (no markdown fences):
+STEP 1 — SCORE EACH DIMENSION (0-100):
+1. financialQuality: Revenue consistency, earnings quality, reporting clarity
+2. growth: Revenue CAGR trend, EPS growth, expansion signals
+3. valuation: PE vs sector, PB, PEG, qualitative DCF
+4. profitability: Gross/Operating/Net margins, ROE, ROCE, ROA
+5. liquidity: Current ratio, cash position, short-term obligations
+6. debt: D/E ratio, interest coverage, debt trajectory
+7. cashFlow: Operating CF, FCF quality, CF/Net Income ratio
+8. macro: Sector tailwinds/headwinds, regulatory environment, interest rate sensitivity
+9. competitive: Moat strength, market share, pricing power, management quality
+
+STEP 2 — COMPUTE COMPOSITE SCORE (weighted average):
+Weights: financialQuality(15%) + growth(15%) + valuation(10%) + profitability(15%) + liquidity(10%) + debt(10%) + cashFlow(10%) + macro(10%) + competitive(15%)
+Composite >=65 = INVEST | 40-64 = WATCH | <40 = SKIP
+(Be decisive! Do not default to WATCH. If fundamentals are strong, score high enough for INVEST. If there are severe red flags, score low enough for SKIP.)
+
+STEP 3 — RETURN THIS EXACT JSON:
 {
+  "dimensionScores": {
+    "financialQuality": 0,
+    "growth": 0,
+    "valuation": 0,
+    "profitability": 0,
+    "liquidity": 0,
+    "debt": 0,
+    "cashFlow": 0,
+    "macro": 0,
+    "competitive": 0
+  },
+  "compositeScore": 0,
   "verdict": "INVEST|WATCH|SKIP",
   "decisionStrength": 8.5,
   "healthScore": ${financials.calculatedHealthScore},
   "confidence": 80,
-  "investmentThesis": "2-3 sentence summary.",
-  "recommendedAction": "Actionable recommendation.",
-  "topReasons": ["Reason 1", "Reason 2"],
-  "keyRisks": ["Risk 1", "Risk 2"],
-  "businessQuality": "Brief evaluation of moat",
-  "valuationSignal": "Undervalued, Fair, or Overvalued",
-  "riskLevel": "Low, Medium, or High",
-  "futureOutlook": "Future prospects.",
-  "nextResearchStep": "Next action for investor.",
-  "missingInformation": ["item 1", "item 2"],
-  "suitableInvestor": "e.g. Long-term value",
+  "investmentThesis": "2-3 sentence summary of the investment case.",
+  "recommendedAction": "Specific, actionable next step for the investor.",
+  "topReasons": ["Reason 1", "Reason 2", "Reason 3"],
+  "keyRisks": ["Risk 1", "Risk 2", "Risk 3"],
+  "moatAnalysis": "Assessment of the company's competitive moat and durability.",
+  "managementQuality": "Assessment of capital allocation, strategy, and execution track record.",
+  "financialRedFlags": ["Red flag 1", "Red flag 2"],
+  "competitivePosition": "Market position, pricing power, barriers to entry.",
+  "growthDrivers": ["Driver 1", "Driver 2"],
+  "macroRisks": ["Macro risk 1", "Macro risk 2"],
+  "industryOutlook": "1-2 sentence outlook for the industry over 3-5 years.",
+  "businessQuality": "Overall business model quality and durability assessment.",
+  "valuationOpinion": "Undervalued | Fair | Overvalued — with specific reasoning.",
+  "liquidityRisk": "Assessment of short-term liquidity and cash adequacy.",
+  "debtAnalysis": "Debt level assessment, trajectory, and serviceability.",
+  "capitalAllocation": "How management allocates capital: buybacks, dividends, capex, M&A.",
+  "whyNOTInvest": "The strongest argument AGAINST investing in this company right now.",
+  "investmentHorizon": "Short-term (0-1yr) | Medium-term (1-3yr) | Long-term (3yr+)",
+  "suitableInvestorProfile": "Type of investor this suits: e.g. Value investor, Growth investor, Income investor",
+  "finalRecommendation": "One paragraph final recommendation with caveats and conditions.",
+  "riskLevel": "Low | Medium | High",
+  "futureOutlook": "Company prospects over the next 3-5 years.",
+  "nextResearchStep": "What the investor should do next to validate or refute this analysis.",
+  "missingInformation": ["data point 1", "data point 2"],
+  "valuationSignal": "Undervalued | Fair | Overvalued",
   "explainableChecks": [
     {
       "checkName": "Metric Name",
       "passed": true,
       "value": "Metric Value",
-      "whyItMatters": "Reasoning",
-      "howItAffectedVerdict": "Impact",
-      "source": "Source",
-      "explanation": { "beginner": "...", "intermediate": "...", "expert": "..." }
+      "whyItMatters": "Why this metric is important for investment decisions",
+      "howItAffectedVerdict": "How this specific metric influenced the final verdict",
+      "source": "Source of this data",
+      "explanation": {
+        "beginner": "Plain English explanation — no jargon",
+        "intermediate": "Explanation with context and industry benchmarks",
+        "expert": "Full technical analysis with ratio comparisons"
+      }
     }
   ],
   "recommendationHub": {
@@ -436,53 +529,24 @@ Return exactly this JSON structure (no markdown fences):
       {
         "name": "Competitor Name",
         "verdict": "INVEST|WATCH|SKIP",
-        "summary": "One sentence summary."
+        "summary": "One sentence relative comparison to this company."
       }
     ],
     "relatedCompanies": [
       {
         "name": "Company Name",
-        "relationship": "Supplier|Customer|Partner",
-        "summary": "One sentence summary."
+        "relationship": "Supplier|Customer|Partner|Regulator",
+        "summary": "One sentence on how this relationship affects the investment thesis."
       }
     ]
   }
 }
 
-For Competitors:
-The backend already provides verified peer companies.
-Never invent competitors.
-Use ONLY the provided peer companies.
-For each provided peer company, generate a verdict and a one-line summary.
-
-For Related Companies:
-Generate Company Name, Relationship, and a one-line explanation.
-Never generate ticker symbols.
-Never generate financial values.
-Never generate fake companies.
-If peer companies are provided:
-
-- Use ONLY the provided peer companies.
-- Never invent competitors.
-
-COMPETITORS RULES
-
-Case 1:
-If PEER COMPANIES are provided,
-use ONLY those companies.
-
-Do not add any new competitors.
-
-Case 2:
-If PEER COMPANIES are "Not available",
-identify up to 4 well-known publicly listed competitors
-from the same industry.
-
-Return only official company names.
-
-Do not return ticker symbols.
-
-The backend will verify every company before displaying it.`;
+COMPETITOR RULES:
+- If PEER COMPANIES are provided: use ONLY those companies. Do not add any new competitors.
+- If PEER COMPANIES are "Not available": identify up to 4 well-known publicly listed competitors from the same industry.
+- Return only official company names. Never return ticker symbols. Never generate fake companies.
+- Backend will verify every company before displaying it.`;
 }
 
 async function verifyCompanyName(companyName) {
@@ -513,7 +577,7 @@ async function verifyCompanyName(companyName) {
 
 async function generateGeminiAnalysis(company, financials, news, peers) {
   const prompt = buildGeminiPrompt(company, financials, news, peers);
-  return await callGemini(prompt, { responseMimeType: 'application/json', temperature: 0.1 });
+  return await callGemini(prompt, { json: true, temperature: 0.1 });
 }
 
 async function resolveCompanyWithAI(query) {
@@ -551,7 +615,7 @@ User Query: ${query}
 Output:`;
 
   try {
-    const parsed = await callGemini(prompt, { responseMimeType: 'application/json', temperature: 0.1 });
+    const parsed = await callGemini(prompt, { json: true, temperature: 0.1 });
     if (parsed && parsed.companyName) {
       return parsed;
     }
@@ -570,6 +634,31 @@ const runResearch = asyncHandler(async (req, res) => {
 
   const rawSymbol = symbol.trim();
   const cleanSymbol = decodeURIComponent(rawSymbol).toUpperCase().trim();
+
+  const cachedData = getCached(cleanSymbol);
+  if (cachedData) {
+    console.log(`\nServing ${cleanSymbol} from cache`);
+    // Still record history async for trending stats, but don't await
+    if (req.user) {
+      ResearchHistory.create({
+        user: req.user._id,
+        symbol: cachedData.company.symbol,
+        companyName: cachedData.company.name,
+        sector: cachedData.company.sector,
+        exchange: cachedData.company.exchange,
+        healthScore: cachedData.aiAnalysis?.healthScore,
+        verdict: cachedData.aiAnalysis?.verdict,
+        confidence: cachedData.aiAnalysis?.confidence
+      }).catch(err => console.error("History logging error:", err));
+      
+      updateAnalyticsOnResearch(
+        cachedData.company.symbol, cachedData.company.name, cachedData.company.sector, 
+        cachedData.company.exchange, cachedData.aiAnalysis?.verdict, 
+        cachedData.aiAnalysis?.confidence, cachedData.aiAnalysis?.healthScore
+      ).catch(err => console.error("Analytics logging error:", err));
+    }
+    return res.json(cachedData);
+  }
 
   let matchResolution = {
     query: cleanSymbol,
@@ -738,15 +827,59 @@ const runResearch = asyncHandler(async (req, res) => {
     }
   }
 
-  res.json({
-    matchResolution,
+  const responsePayload = {
     company,
     financials,
-    news: news.slice(0, 10),
-    peers,
+    news: news ? news.slice(0, 10) : [],
+    peers: peers || [],
     aiAnalysis,
+    matchResolution,
     generatedAt: new Date().toISOString(),
-  });
+  };
+
+  setCached(cleanSymbol, responsePayload);
+  res.json(responsePayload);
+
+  // ─── Post-response: persist to history + update analytics (non-blocking) ─────
+  // Only runs if user is authenticated (optionalAuth middleware)
+  if (req.user) {
+    setImmediate(async () => {
+      try {
+        await ResearchHistory.create({
+          userId: req.user._id,
+          symbol: company.symbol,
+          companyName: company.name,
+          sector: company.sector,
+          exchange: company.exchange,
+          verdict: aiAnalysis?.verdict,
+          confidence: aiAnalysis?.confidence,
+          healthScore: aiAnalysis?.healthScore || financials?.calculatedHealthScore,
+          decisionStrength: aiAnalysis?.decisionStrength,
+          dimensionScores: aiAnalysis?.dimensionScores,
+          topReasons: aiAnalysis?.topReasons,
+          keyRisks: aiAnalysis?.keyRisks,
+          reportSnapshot: responsePayload,
+          generatedAt: new Date(),
+        });
+      } catch (e) {
+        console.warn('Failed to save research history:', e.message);
+      }
+
+      try {
+        await updateAnalyticsOnResearch(
+          company.symbol,
+          company.name,
+          company.sector,
+          company.exchange,
+          aiAnalysis?.verdict,
+          aiAnalysis?.confidence,
+          aiAnalysis?.healthScore || financials?.calculatedHealthScore
+        );
+      } catch (e) {
+        console.warn('Failed to update analytics:', e.message);
+      }
+    });
+  }
 });
 
 module.exports = { runResearch };

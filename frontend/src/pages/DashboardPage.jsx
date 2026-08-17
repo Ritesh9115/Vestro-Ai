@@ -1,6 +1,8 @@
 import { useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { fetchResearch } from '../services/api'
+import api from '../services/api'
+import toast from 'react-hot-toast'
 import ResearchProgress, { STEPS } from '../components/ResearchProgress/ResearchProgress'
 import CompanyHeader from '../components/Dashboard/CompanyHeader'
 import FinancialMetrics from '../components/Dashboard/FinancialMetrics'
@@ -13,7 +15,7 @@ import RecommendationHub from '../components/Dashboard/RecommendationHub'
 import SearchBar from '../components/SearchBar/SearchBar'
 import MatchResolution from '../components/Dashboard/MatchResolution'
 import { useExperience } from '../context/ExperienceContext'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, X, Check } from 'lucide-react'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -24,13 +26,18 @@ const TABS = [
 
 export default function DashboardPage() {
   const { symbol } = useParams()
-  const { mode, setMode } = useExperience()
+  const { mode } = useExperience()
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [currentStep, setCurrentStep] = useState(0)
   const [activeTab, setActiveTab] = useState('overview')
+
+  // Portfolio Prompt Modal State
+  const [showPortfolioPrompt, setShowPortfolioPrompt] = useState(false)
+  const [portfolioForm, setPortfolioForm] = useState({ shares: '', avgBuyPrice: '' })
+  const [savingPortfolio, setSavingPortfolio] = useState(false)
 
   useEffect(() => {
     if (symbol) {
@@ -45,6 +52,7 @@ export default function DashboardPage() {
     setError(null)
     setData(null)
     setCurrentStep(0)
+    setShowPortfolioPrompt(false)
 
     const stepDelay = (index) => new Promise((resolve) => setTimeout(resolve, index === 0 ? 400 : 1200))
 
@@ -56,6 +64,7 @@ export default function DashboardPage() {
       const result = await fetchResearch(sym)
       setCurrentStep(STEPS.length - 1)
       setData(result)
+      
     } catch (err) {
       const message = err.response?.data?.error || err.message || 'Research failed. Please try again.'
       setError(message)
@@ -64,8 +73,66 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleSaveReport() {
+    if (!data) return
+    try {
+      const payload = {
+        symbol: data.company.symbol,
+        companyName: data.company.name,
+        sector: data.company.sector,
+        verdict: data.aiAnalysis.verdict,
+        confidence: data.aiAnalysis.confidence,
+        healthScore: data.aiAnalysis.healthScore,
+        reportSnapshot: data,
+      }
+      await api.post('/api/reports', payload)
+      toast.success('Report saved successfully!')
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save report')
+    }
+  }
+
+  async function handleAddToWatchlist() {
+    if (!data) return
+    try {
+      const payload = {
+        symbol: data.company.symbol,
+        companyName: data.company.name,
+        sector: data.company.sector,
+        exchange: data.company.exchange,
+      }
+      await api.post('/api/watchlist', payload)
+      toast.success('Added to watchlist!')
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to add to watchlist')
+    }
+  }
+
+  async function handleAddToPortfolio(e) {
+    e.preventDefault()
+    if (!data) return
+    setSavingPortfolio(true)
+    try {
+      const payload = {
+        symbol: data.company.symbol,
+        companyName: data.company.name,
+        sector: data.company.sector,
+        exchange: data.company.exchange,
+        shares: Number(portfolioForm.shares),
+        avgBuyPrice: Number(portfolioForm.avgBuyPrice),
+      }
+      await api.post('/api/portfolio/holdings', payload)
+      toast.success('Added to portfolio!')
+      setShowPortfolioPrompt(false)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to add to portfolio')
+    } finally {
+      setSavingPortfolio(false)
+    }
+  }
+
   return (
-    <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
+    <div style={{ background: '#FBFBF8', minHeight: '100vh', position: 'relative' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 24px 80px' }}>
         <div style={{ marginBottom: 28, maxWidth: 520 }}>
           <SearchBar />
@@ -102,7 +169,16 @@ export default function DashboardPage() {
         {data && !loading && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'stretch' }}>
-              <CompanyHeader company={data.company} aiAnalysis={data.aiAnalysis} />
+              <CompanyHeader 
+                company={data.company} 
+                aiAnalysis={data.aiAnalysis} 
+                onSaveReport={handleSaveReport}
+                onAddToWatchlist={handleAddToWatchlist}
+                onInvestClick={() => {
+                  setPortfolioForm(p => ({ ...p, avgBuyPrice: data.company.price || '' }))
+                  setShowPortfolioPrompt(true)
+                }}
+              />
               <MatchResolution matchData={data.matchResolution} />
             </div>
 
@@ -160,6 +236,66 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Post-Research Investment Prompt Modal */}
+      {showPortfolioPrompt && data && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15,33,26,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+          padding: 24
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: 32, width: '100%', maxWidth: 420,
+            boxShadow: '0 24px 48px rgba(15,33,26,0.1)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0F211A', fontFamily: "'Fraunces', serif" }}>
+                Would you like to invest in {data.company.symbol}?
+              </h3>
+              <button onClick={() => setShowPortfolioPrompt(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA69F' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p style={{ color: '#5B6B63', fontSize: '0.9rem', marginBottom: 24, lineHeight: 1.5 }}>
+              Vestro AI has completed the analysis. Do you want to add this to your portfolio tracking?
+            </p>
+
+            <form onSubmit={handleAddToPortfolio} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#0F211A', marginBottom: 6 }}>Number of Shares</label>
+                <input
+                  type="number" required min="0.01" step="0.01"
+                  value={portfolioForm.shares} onChange={(e) => setPortfolioForm(p => ({ ...p, shares: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E8E2', borderRadius: 8, fontSize: '0.9rem', outline: 'none' }}
+                  placeholder="e.g. 15"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#0F211A', marginBottom: 6 }}>Purchase Price (₹)</label>
+                <input
+                  type="number" required min="0.01" step="0.01"
+                  value={portfolioForm.avgBuyPrice} onChange={(e) => setPortfolioForm(p => ({ ...p, avgBuyPrice: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E8E2', borderRadius: 8, fontSize: '0.9rem', outline: 'none' }}
+                  placeholder="e.g. 150.50"
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <button type="button" onClick={() => setShowPortfolioPrompt(false)}
+                  style={{ flex: 1, padding: '10px', background: '#F5F7F4', border: '1px solid #E5E8E2', borderRadius: 8, color: '#5B6B63', fontWeight: 600, cursor: 'pointer' }}>
+                  No, Skip
+                </button>
+                <button type="submit" disabled={savingPortfolio}
+                  style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #0E8F5B, #0B6E46)', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {savingPortfolio ? 'Saving...' : <><Check size={16} /> Add to Portfolio</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

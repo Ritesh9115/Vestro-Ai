@@ -85,7 +85,7 @@ export default function VerdictPanel({ aiAnalysis }) {
     futureOutlook,
     nextResearchStep,
     missingInformation = [],
-    suitableInvestor
+    suitableInvestorProfile
   } = aiAnalysis
 
   return (
@@ -195,7 +195,7 @@ export default function VerdictPanel({ aiAnalysis }) {
         </div>
         <div>
           <div style={{ fontSize: '0.75rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Suitable Investor</div>
-          <div style={{ fontSize: '0.9rem', color: '#0F211A', fontWeight: 500 }}>{suitableInvestor}</div>
+          <div style={{ fontSize: '0.9rem', color: '#0F211A', fontWeight: 500 }}>{suitableInvestorProfile}</div>
         </div>
       </div>
     </div>
