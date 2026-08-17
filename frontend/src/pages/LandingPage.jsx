@@ -524,7 +524,7 @@ function HeroSection() {
 
       <div style={{ maxWidth:1120, margin:'0 auto', width:'100%', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 40 : 64, alignItems:'center', position:'relative', zIndex:1 }}>
         {/* LEFT: Text */}
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start', textAlign: isMobile ? 'center' : 'left' }}>
           <motion.div
             initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.1,duration:0.6 }}
             style={{ display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',background:'#E4F5EC',border:'1px solid rgba(14,143,91,0.3)',borderRadius:99,marginBottom:28 }}>
@@ -563,7 +563,7 @@ function HeroSection() {
 
           {/* CTAs */}
           <motion.div initial={{ opacity:0,scale:0.95 }} animate={{ opacity:1,scale:1 }} transition={{ delay:1.1,duration:0.6 }}
-            style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+            style={{ display:'flex', gap:12, flexWrap:'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
             <motion.button onClick={()=>navigate('/research')}
               whileHover={{ scale:1.04,boxShadow:'0 8px 32px rgba(14,143,91,0.3)' }} whileTap={{ scale:0.97 }}
               style={{ display:'flex',alignItems:'center',gap:10,padding:'14px 28px',background:'linear-gradient(135deg,#0E8F5B,#0B6E46)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,fontSize:'1rem',cursor:'pointer',fontFamily:"'Inter',sans-serif",boxShadow:'0 4px 16px rgba(14,143,91,0.25)' }}>
