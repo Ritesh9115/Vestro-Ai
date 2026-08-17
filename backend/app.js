@@ -33,10 +33,12 @@ const config = require('./src/config/config');
 
 const app = express();
 
+
 // ─── Connect MongoDB ──────────────────────────────────────────────────────────
 connectDB();
 
 // ─── Security Middleware ──────────────────────────────────────────────────────
+app.set("trust proxy", 1);
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: false, // Handled by frontend
