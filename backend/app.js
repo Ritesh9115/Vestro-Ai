@@ -33,12 +33,15 @@ const config = require('./src/config/config');
 
 const app = express();
 
+// ─── Trust proxy (Render / any reverse proxy) ────────────────────────────────
+// Required so express-rate-limit can read the real client IP from X-Forwarded-For.
+app.set('trust proxy', 1);
 
 // ─── Connect MongoDB ──────────────────────────────────────────────────────────
 connectDB();
 
 // ─── Security Middleware ──────────────────────────────────────────────────────
-app.set("trust proxy", 1);
+
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: false, // Handled by frontend
@@ -68,8 +71,11 @@ app.use(cors({
 app.use(compression());
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
-if (config.nodeEnv !== 'test') {
-  app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined'));
+if (config.nodeEnv === 'development') {
+  app.use(morgan('dev'));
+} else if (config.nodeEnv !== 'test') {
+  // Production: compact single-line log — method, url, status, response time
+  app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
 }
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
