@@ -16,6 +16,7 @@ import SearchBar from '../components/SearchBar/SearchBar'
 import MatchResolution from '../components/Dashboard/MatchResolution'
 import { useExperience } from '../context/ExperienceContext'
 import { AlertCircle, X, Check } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -27,6 +28,7 @@ const TABS = [
 export default function DashboardPage() {
   const { symbol } = useParams()
   const { mode } = useExperience()
+  const isMobile = useIsMobile()
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -133,8 +135,8 @@ export default function DashboardPage() {
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh', position: 'relative' }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 24px 80px' }}>
-        <div style={{ marginBottom: 28, maxWidth: 520 }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: isMobile ? '16px 16px 80px' : '24px 24px 80px' }}>
+        <div style={{ marginBottom: 28, maxWidth: isMobile ? '100%' : 520 }}>
           <SearchBar />
         </div>
 
@@ -168,7 +170,7 @@ export default function DashboardPage() {
 
         {data && !loading && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'stretch' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, alignItems: 'stretch', marginBottom: 4 }}>
               <CompanyHeader 
                 company={data.company} 
                 aiAnalysis={data.aiAnalysis} 
@@ -182,13 +184,14 @@ export default function DashboardPage() {
               <MatchResolution matchData={data.matchResolution} />
             </div>
 
-            <div
+            <div className="scroll-x"
               style={{
                 display: 'flex',
                 gap: 6,
                 borderBottom: '1px solid #E5E8E2',
                 marginBottom: 28,
                 marginTop: 4,
+                flexShrink: 0,
               }}
             >
               {TABS.map((tab) => (
@@ -197,8 +200,8 @@ export default function DashboardPage() {
                   onClick={() => setActiveTab(tab.id)}
                   style={{
                     padding: '12px 4px',
-                    marginRight: 20,
-                    fontSize: '0.9rem',
+                    marginRight: isMobile ? 12 : 20,
+                    fontSize: isMobile ? '0.82rem' : '0.9rem',
                     fontWeight: 600,
                     color: activeTab === tab.id ? '#0F211A' : '#9AA69F',
                     background: 'none',
@@ -206,6 +209,7 @@ export default function DashboardPage() {
                     borderBottom: `2px solid ${activeTab === tab.id ? '#0E8F5B' : 'transparent'}`,
                     cursor: 'pointer',
                     fontFamily: "'Inter', sans-serif",
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {tab.label}

@@ -5,11 +5,13 @@ import api from '../services/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import ResearchTimeline from '../components/timeline/ResearchTimeline'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const verdictColor = (v) => v === 'INVEST' ? '#0E8F5B' : v === 'WATCH' ? '#B8862E' : v === 'SKIP' ? '#C8443A' : '#9AA69F'
 const verdictBg   = (v) => v === 'INVEST' ? '#E4F5EC' : v === 'WATCH' ? '#FBF4E8' : v === 'SKIP' ? '#FBEAE8' : '#F5F7F4'
 
 export default function HistoryPage() {
+  const isMobile = useIsMobile()
   const [history, setHistory] = useState([])
   const [pagination, setPagination] = useState({})
   const [page, setPage] = useState(1)
@@ -46,24 +48,24 @@ export default function HistoryPage() {
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Research History</h1>
-            <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Every stock you've analysed — with AI-explained changes</p>
+            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.5rem' : '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Research History</h1>
+            {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Every stock you've analysed — with AI-explained changes</p>}
           </div>
           {/* Timeline symbol search */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: isMobile ? '100%' : 'auto' }}>
+            <div style={{ position: 'relative', flex: isMobile ? 1 : 'none' }}>
               <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9AA69F' }} />
               <input placeholder="Timeline: RELIANCE.NS" value={searchSymbol} onChange={(e) => setSearchSymbol(e.target.value)}
-                style={{ padding: '9px 12px 9px 30px', border: '1px solid #E5E8E2', borderRadius: 10, fontSize: '0.8rem', outline: 'none', fontFamily: 'Inter,sans-serif', width: 200 }} />
+                style={{ padding: '9px 12px 9px 30px', border: '1px solid #E5E8E2', borderRadius: 10, fontSize: '0.8rem', outline: 'none', fontFamily: 'Inter,sans-serif', width: isMobile ? '100%' : 200 }} />
             </div>
             <button onClick={() => { if (searchSymbol.trim()) setTimelineSymbol(searchSymbol.trim().toUpperCase()) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'linear-gradient(135deg,#0E8F5B,#0B6E46)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}>
-              <TrendingUp size={14} /> View Timeline
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: 'linear-gradient(135deg,#0E8F5B,#0B6E46)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+              <TrendingUp size={14} /> {isMobile ? '' : 'View '}Timeline
             </button>
           </div>
         </div>
@@ -96,8 +98,7 @@ export default function HistoryPage() {
         {/* History list */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'vspin 0.8s linear infinite', margin: '0 auto' }} />
           </div>
         ) : history.length === 0 ? (
           <div style={{ ...card, padding: 60, textAlign: 'center' }}>

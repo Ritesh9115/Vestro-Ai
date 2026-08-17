@@ -42,7 +42,7 @@ async function updateAnalyticsOnResearch(symbol, companyName, sector, exchange, 
         lastUpdatedAt: new Date(),
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   // Recompute rolling averages

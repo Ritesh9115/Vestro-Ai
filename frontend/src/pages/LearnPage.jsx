@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const LEARN_SECTIONS = [
   {
@@ -117,6 +118,7 @@ const LEARN_SECTIONS = [
 ]
 
 export default function LearnPage() {
+  const isMobile = useIsMobile()
   const [openSection, setOpenSection] = useState('profitability')
   const [openMetric, setOpenMetric] = useState(null)
   const [mode, setMode] = useState('beginner')
@@ -127,7 +129,7 @@ export default function LearnPage() {
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh', paddingBottom: 80 }}>
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '48px 24px 0' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: isMobile ? '28px 16px 0' : '48px 24px 0' }}>
         <div style={{ marginBottom: 36 }}>
           <div
             style={{
@@ -171,7 +173,7 @@ export default function LearnPage() {
             background: '#EFF1EC',
             borderRadius: 12,
             padding: 4,
-            width: 'fit-content',
+            width: isMobile ? '100%' : 'fit-content',
           }}
         >
           {['beginner', 'intermediate', 'expert'].map((m) => (
@@ -179,13 +181,14 @@ export default function LearnPage() {
               key={m}
               onClick={() => setMode(m)}
               style={{
+                flex: isMobile ? 1 : 'none',
                 padding: '8px 18px',
                 borderRadius: 9,
                 border: 'none',
                 background: mode === m ? '#FFFFFF' : 'transparent',
                 color: mode === m ? '#0F211A' : '#9AA69F',
                 fontWeight: 600,
-                fontSize: '0.85rem',
+                fontSize: isMobile ? '0.78rem' : '0.85rem',
                 cursor: 'pointer',
                 fontFamily: "'Inter', sans-serif",
                 textTransform: 'capitalize',

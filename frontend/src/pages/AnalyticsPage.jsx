@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, BarChart2, Star, Shield, Flame, Award } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const verdictColor = (v) => v === 'INVEST' ? '#0E8F5B' : v === 'WATCH' ? '#B8862E' : v === 'SKIP' ? '#C8443A' : '#9AA69F'
 const verdictBg   = (v) => v === 'INVEST' ? '#E4F5EC' : v === 'WATCH' ? '#FBF4E8' : v === 'SKIP' ? '#FBEAE8' : '#F5F7F4'
@@ -38,6 +39,7 @@ const SECTIONS = [
 ]
 
 export default function AnalyticsPage() {
+  const isMobile = useIsMobile()
   const [data, setData] = useState({})
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState('trending')
@@ -62,27 +64,26 @@ export default function AnalyticsPage() {
 
   if (loading) return (
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'vspin 0.8s linear infinite' }} />
     </div>
   )
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Platform Analytics</h1>
-          <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Live intelligence on what the Vestro community is researching</p>
-          <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E4F5EC', padding: '6px 12px', borderRadius: 8 }}>
+        <div style={{ marginBottom: 28 }}>
+          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.5rem' : '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Platform Analytics</h1>
+          {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Live intelligence on what the Vestro community is researching</p>}
+          <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E4F5EC', padding: '6px 12px', borderRadius: 8 }}>
             <BarChart2 size={14} color="#0E8F5B" />
             <span style={{ fontSize: '0.75rem', color: '#0E8F5B', fontWeight: 600 }}>Note: This data is based entirely on our users' research activity.</span>
           </div>
         </div>
 
         {/* Summary stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 32 }}>
           {[
             { label: 'Trending Symbols', value: data.trending?.length || 0, icon: <Flame size={20} color="#C8443A" /> },
             { label: 'Top Confidence', value: data.confidence?.[0]?.avgConfidence ? `${data.confidence[0].avgConfidence}%` : '—', icon: <Award size={20} color="#0E8F5B" /> },
@@ -117,7 +118,7 @@ export default function AnalyticsPage() {
             No data available yet. Research stocks to populate analytics.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(320px,1fr))', gap: 12 }}>
             {activeData.map((item, i) => (
               <StatCard
                 key={item.symbol}

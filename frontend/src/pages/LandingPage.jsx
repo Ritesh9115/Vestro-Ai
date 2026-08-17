@@ -11,6 +11,7 @@ import {
   AlertTriangle, Target, Globe, BarChart2, Brain,
   ShieldCheck, TrendingUp, Eye, MessageSquare, Zap, Clock,
 } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ─── SEEDED RNG ───────────────────────────────────────────────────────────────
 function lcg(seed) {
@@ -504,12 +505,13 @@ function Marquee() {
 // ─── HERO: White bg + product image ──────────────────────────────────────────
 function HeroSection() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const ref = useRef(null)
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] })
   const rotateY = useTransform(scrollYProgress, [0, 0.7], ['0deg', '180deg'])
 
   return (
-    <section ref={ref} style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', padding: '80px 48px 60px', position: 'relative', overflow: 'hidden' }}>
+    <section ref={ref} style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', padding: isMobile ? '70px 20px 48px' : '80px 48px 60px', position: 'relative', overflow: 'hidden' }}>
       {/* Subtle green ambient */}
       <div aria-hidden style={{ position:'absolute',inset:0,pointerEvents:'none' }}>
         <div style={{ position:'absolute',top:'-20%',right:'-10%',width:700,height:700,borderRadius:'50%',background:'radial-gradient(ellipse,rgba(14,143,91,0.07) 0%,transparent 65%)' }} />
@@ -520,7 +522,7 @@ function HeroSection() {
         </svg>
       </div>
 
-      <div style={{ maxWidth:1120,margin:'0 auto',width:'100%',display:'grid',gridTemplateColumns:'1fr 1fr',gap:64,alignItems:'center',position:'relative',zIndex:1 }}>
+      <div style={{ maxWidth:1120, margin:'0 auto', width:'100%', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 40 : 64, alignItems:'center', position:'relative', zIndex:1 }}>
         {/* LEFT: Text */}
         <div>
           <motion.div
@@ -530,7 +532,7 @@ function HeroSection() {
             <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.68rem',color:'#0B6E46',letterSpacing:'0.1em',textTransform:'uppercase',fontWeight:700 }}>AI Investment Research Platform</span>
           </motion.div>
 
-          <h1 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(3rem,5.5vw,5rem)',fontWeight:700,lineHeight:1.02,letterSpacing:'-0.04em',color:'#0F211A',margin:'0 0 20px' }}>
+          <h1 style={{ fontFamily:"'Fraunces',serif", fontSize: isMobile ? 'clamp(2.4rem,8vw,3.2rem)' : 'clamp(3rem,5.5vw,5rem)', fontWeight:700, lineHeight:1.02, letterSpacing:'-0.04em', color:'#0F211A', margin:'0 0 20px' }}>
             {'Invest'.split('').map((ch,i)=>(
               <motion.span key={i} initial={{ opacity:0,y:50,filter:'blur(10px)' }} animate={{ opacity:1,y:0,filter:'blur(0)' }} transition={{ delay:0.2+i*0.04,duration:0.7,ease:[0.22,1,0.36,1] }} style={{ display:'inline-block' }}>{ch}</motion.span>
             ))}
@@ -550,7 +552,7 @@ function HeroSection() {
 
           {/* Stats */}
           <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:1.0,duration:0.6 }}
-            style={{ display:'flex',gap:28,marginBottom:36 }}>
+            style={{ display:'flex', gap: isMobile ? 16 : 28, marginBottom:36 }}>
             {[['50K+','Companies'],['10+','Exchanges'],['9','AI steps']].map(([val,lab])=>(
               <div key={lab}>
                 <div style={{ fontFamily:"'Fraunces',serif",fontSize:'2rem',fontWeight:700,color:'#0F211A',lineHeight:1 }}>{val}</div>
@@ -575,13 +577,13 @@ function HeroSection() {
           </motion.div>
 
           <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.5 }}
-            style={{ marginTop:18,fontSize:'0.78rem',color:'#9AA69F' }}>
-            Try: AAPL · TCS.NS · RELIANCE.NS · TSLA · MSFT
+            style={{ marginTop:18, fontSize:'0.78rem', color:'#9AA69F' }}>
+            {isMobile ? 'Try: AAPL · TCS.NS · TSLA' : 'Try: AAPL · TCS.NS · RELIANCE.NS · TSLA · MSFT'}
           </motion.p>
         </div>
 
-        {/* RIGHT: Product image */}
-        <motion.div initial={{ opacity:0,x:60,scale:0.92 }} animate={{ opacity:1,x:0,scale:1 }}
+        {/* RIGHT: Product image — hidden on mobile to save space */}
+        {!isMobile && (<motion.div initial={{ opacity:0,x:60,scale:0.92 }} animate={{ opacity:1,x:0,scale:1 }}
           transition={{ delay:0.4,duration:1,ease:[0.22,1,0.36,1] }} style={{ position:'relative', perspective: 1500 }}>
           <motion.div style={{ position: 'relative', width: '100%', transformStyle: 'preserve-3d', rotateY }}>
             {/* FRONT side */}
@@ -607,7 +609,8 @@ function HeroSection() {
               <div style={{ marginTop: 20, color: '#0E8F5B', fontFamily: "'Fraunces', serif", fontSize: '1.4rem', fontWeight: 700 }}>Vestro AI</div>
             </div>
           </motion.div>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
 
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:2 }}
@@ -622,20 +625,21 @@ function HeroSection() {
 
 // ─── PROBLEMS ─────────────────────────────────────────────────────────────────
 function ProblemsSection() {
+  const isMobile = useIsMobile()
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, amount: 0.1 })
   return (
-    <section ref={ref} style={{ background: '#fff', padding: '100px 24px' }}>
+    <section ref={ref} style={{ background: '#fff', padding: isMobile ? '60px 20px' : '100px 24px' }}>
       <div style={{ maxWidth: 1080, margin: '0 auto' }}>
         <motion.div initial={{ opacity:0,y:32 }} animate={inView?{ opacity:1,y:0 }:{}} transition={{ duration:0.8 }}
-          style={{ textAlign:'center',maxWidth:560,margin:'0 auto 64px' }}>
-          <p style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.72rem',color:'#C8443A',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14,fontWeight:700 }}>The problem</p>
-          <h2 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(2rem,5vw,3.2rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.03em',margin:'0 0 16px',lineHeight:1.08 }}>
+          style={{ textAlign:'center', maxWidth:560, margin:'0 auto 48px' }}>
+          <p style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:'0.72rem', color:'#C8443A', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14, fontWeight:700 }}>The problem</p>
+          <h2 style={{ fontFamily:"'Fraunces',serif", fontSize:'clamp(1.8rem,5vw,3.2rem)', fontWeight:600, color:'#0F211A', letterSpacing:'-0.03em', margin:'0 0 16px', lineHeight:1.08 }}>
             Investment research<br/>is completely broken.
           </h2>
-          <p style={{ fontSize:'1rem',color:'#5B6B63',lineHeight:1.7,margin:0 }}>Here's what every serious investor faces before making any decision.</p>
+          <p style={{ fontSize:'1rem', color:'#5B6B63', lineHeight:1.7, margin:0 }}>Here's what every serious investor faces before making any decision.</p>
         </motion.div>
-        <div style={{ display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:20 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap:16 }}>
           {PROBLEMS.map((p,i)=>(
             <motion.div key={p.title}
               initial={{ opacity:0,y:40 }} animate={inView?{ opacity:1,y:0 }:{}}
@@ -662,10 +666,11 @@ function ProblemsSection() {
 
 // ─── GLOBE (dark bg, real world map) ─────────────────────────────────────────
 function GlobeSection() {
+  const isMobile = useIsMobile()
   const ref = useRef(null)
-  const inView = useInView(ref, { once:true,amount:0.2 })
+  const inView = useInView(ref, { once:true, amount:0.2 })
   return (
-    <section ref={ref} style={{ background:'#0F211A',padding:'100px 24px',position:'relative',overflow:'hidden' }}>
+    <section ref={ref} style={{ background:'#0F211A', padding: isMobile ? '60px 20px' : '100px 24px', position:'relative', overflow:'hidden' }}>
       <div aria-hidden style={{ position:'absolute',inset:0,pointerEvents:'none' }}>
         <div style={{ position:'absolute',top:'50%',left:'30%',width:600,height:600,borderRadius:'50%',background:'radial-gradient(ellipse,rgba(14,143,91,0.08) 0%,transparent 70%)',transform:'translate(-50%,-50%)' }}/>
         <svg style={{ position:'absolute',inset:0,width:'100%',height:'100%',opacity:0.04 }}>
@@ -673,7 +678,7 @@ function GlobeSection() {
           <rect width="100%" height="100%" fill="url(#dg)"/>
         </svg>
       </div>
-      <div style={{ maxWidth:1080,margin:'0 auto',display:'grid',gridTemplateColumns:'1fr 1fr',gap:60,alignItems:'center',position:'relative',zIndex:1 }}>
+      <div style={{ maxWidth:1080, margin:'0 auto', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 60, alignItems:'center', position:'relative', zIndex:1 }}>
         <motion.div initial={{ opacity:0,scale:0.85 }} animate={inView?{ opacity:1,scale:1 }:{}} transition={{ duration:1,ease:[0.22,1,0.36,1] }}
           style={{ display:'flex',justifyContent:'center',position:'relative' }}>
           <div style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:420,height:420,borderRadius:'50%',background:'radial-gradient(ellipse,rgba(14,143,91,0.1) 0%,transparent 70%)',pointerEvents:'none' }}/>
@@ -714,11 +719,12 @@ function GlobeSection() {
 
 // ─── ORBITING ─────────────────────────────────────────────────────────────────
 function OrbitingSection() {
+  const isMobile = useIsMobile()
   const ref = useRef(null)
-  const inView = useInView(ref, { once:true,amount:0.15 })
+  const inView = useInView(ref, { once:true, amount:0.15 })
   return (
-    <section ref={ref} style={{ background:'#FBFBF8',padding:'100px 24px' }}>
-      <div style={{ maxWidth:1080,margin:'0 auto',display:'grid',gridTemplateColumns:'1fr 1fr',gap:60,alignItems:'center' }}>
+    <section ref={ref} style={{ background:'#FBFBF8', padding: isMobile ? '60px 20px' : '100px 24px' }}>
+      <div style={{ maxWidth:1080, margin:'0 auto', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 40 : 60, alignItems:'center' }}>
         <motion.div initial={{ opacity:0,x:-40 }} animate={inView?{ opacity:1,x:0 }:{}} transition={{ duration:0.8,ease:[0.22,1,0.36,1] }}>
           <p style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.72rem',color:'#0E8F5B',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14,fontWeight:700 }}>One platform</p>
           <h2 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(2rem,4vw,3rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.03em',lineHeight:1.1,margin:'0 0 20px' }}>
@@ -755,11 +761,12 @@ function OrbitingSection() {
 
 // ─── ICON CLOUD + FEATURE LIST ────────────────────────────────────────────────
 function IconCloudSection() {
+  const isMobile = useIsMobile()
   const ref = useRef(null)
-  const inView = useInView(ref, { once:true,amount:0.15 })
+  const inView = useInView(ref, { once:true, amount:0.15 })
   return (
-    <section ref={ref} style={{ background:'#F5F7F4',padding:'100px 24px' }}>
-      <div style={{ maxWidth:1080,margin:'0 auto',display:'grid',gridTemplateColumns:'1fr 1fr',gap:60,alignItems:'center' }}>
+    <section ref={ref} style={{ background:'#F5F7F4', padding: isMobile ? '60px 20px' : '100px 24px' }}>
+      <div style={{ maxWidth:1080, margin:'0 auto', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 60, alignItems:'center' }}>
         <motion.div initial={{ opacity:0,scale:0.8 }} animate={inView?{ opacity:1,scale:1 }:{}} transition={{ duration:1,ease:[0.22,1,0.36,1] }}
           style={{ display:'flex',justifyContent:'center' }}>
           <IconCloud3D/>
@@ -826,25 +833,26 @@ function DottedMapSection() {
 
 // ─── FEATURES ─────────────────────────────────────────────────────────────────
 function FeatureRow({ feat, index }) {
+  const isMobile = useIsMobile()
   const ref = useRef(null)
-  const inView = useInView(ref, { once:true,amount:0.25 })
+  const inView = useInView(ref, { once:true, amount:0.25 })
   const isEven = index % 2 === 0
   return (
-    <div ref={ref} style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:60,alignItems:'center',padding:'70px 0' }}>
-      <motion.div initial={{ opacity:0,x:isEven?-50:50 }} animate={inView?{ opacity:1,x:0 }:{}} transition={{ duration:0.85,ease:[0.22,1,0.36,1] }} style={{ order:isEven?0:1 }}>
+    <div ref={ref} style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 28 : 60, alignItems:'center', padding: isMobile ? '40px 0' : '70px 0' }}>
+      <motion.div initial={{ opacity:0, x: isMobile ? 0 : isEven?-50:50 }} animate={inView?{ opacity:1,x:0 }:{}} transition={{ duration:0.85, ease:[0.22,1,0.36,1] }} style={{ order: isMobile ? 0 : isEven?0:1 }}>
         <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:18 }}>
           <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.62rem',color:'#0E8F5B',fontWeight:700,letterSpacing:'0.1em' }}>{feat.num}</span>
           <div style={{ width:1,height:14,background:'#E5E8E2' }}/>
           <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.62rem',color:'#9AA69F',letterSpacing:'0.1em',textTransform:'uppercase' }}>{feat.tag}</span>
         </div>
-        <h3 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(1.8rem,3.5vw,2.6rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.025em',lineHeight:1.1,margin:'0 0 18px' }}>{feat.title}</h3>
+        <h3 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(1.6rem,3.5vw,2.6rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.025em',lineHeight:1.1,margin:'0 0 18px' }}>{feat.title}</h3>
         <p style={{ fontSize:'0.95rem',color:'#5B6B63',lineHeight:1.75,margin:'0 0 28px' }}>{feat.body}</p>
         <div style={{ padding:'14px 20px',background:'#E4F5EC',borderRadius:12,display:'inline-block' }}>
           <div style={{ fontFamily:"'Fraunces',serif",fontSize:'2rem',fontWeight:700,color:'#0E8F5B',lineHeight:1 }}>{feat.stat}</div>
           <div style={{ fontSize:'0.7rem',color:'#0B6E46',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',marginTop:4 }}>{feat.statLabel}</div>
         </div>
       </motion.div>
-      <motion.div initial={{ opacity:0,x:isEven?60:-60,scale:0.9 }} animate={inView?{ opacity:1,x:0,scale:1 }:{}} transition={{ delay:0.15,duration:0.9,ease:[0.22,1,0.36,1] }} style={{ order:isEven?1:0 }}>
+      <motion.div initial={{ opacity:0, x: isMobile ? 0 : isEven?60:-60, scale:0.9 }} animate={inView?{ opacity:1,x:0,scale:1 }:{}} transition={{ delay:0.15,duration:0.9,ease:[0.22,1,0.36,1] }} style={{ order: isMobile ? -1 : isEven?1:0 }}>
         <div style={{ borderRadius:22,overflow:'hidden',boxShadow:'0 32px 80px rgba(15,33,26,0.18)',border:'1px solid rgba(229,232,226,0.5)' }}>
           <img src={feat.img} alt={feat.imgAlt} style={{ width:'100%',height:'auto',display:'block' }}/>
         </div>
@@ -854,9 +862,10 @@ function FeatureRow({ feat, index }) {
 }
 
 function FeaturesSection() {
+  const isMobile = useIsMobile()
   return (
-    <section style={{ background:'#FBFBF8',padding:'40px 0 80px' }}>
-      <div style={{ maxWidth:1080,margin:'0 auto',padding:'0 48px' }}>
+    <section style={{ background:'#FBFBF8', padding: isMobile ? '40px 0 60px' : '40px 0 80px' }}>
+      <div style={{ maxWidth:1080, margin:'0 auto', padding: isMobile ? '0 20px' : '0 48px' }}>
         <motion.div initial={{ opacity:0,y:32 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true,amount:0.3 }} transition={{ duration:0.8 }}
           style={{ textAlign:'center',maxWidth:520,margin:'0 auto 20px' }}>
           <p style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.72rem',color:'#0E8F5B',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14,fontWeight:700 }}>The product</p>
@@ -872,20 +881,22 @@ function FeaturesSection() {
 
 // ─── COMPARISON ───────────────────────────────────────────────────────────────
 function Comparison() {
+  const isMobile = useIsMobile()
   const cols = [
-    { key:'yahoo',label:'Yahoo Finance' },{ key:'tickertape',label:'Tickertape' },
-    { key:'chatgpt',label:'ChatGPT' },{ key:'vestro',label:'Vestro AI',highlight:true },
+    { key:'yahoo', label:'Yahoo Finance' }, { key:'tickertape', label:'Tickertape' },
+    { key:'chatgpt', label:'ChatGPT' }, { key:'vestro', label:'Vestro AI', highlight:true },
   ]
   return (
-    <section style={{ background:'#F5F7F4',padding:'100px 24px' }}>
-      <div style={{ maxWidth:860,margin:'0 auto' }}>
+    <section style={{ background:'#F5F7F4', padding: isMobile ? '60px 20px' : '100px 24px' }}>
+      <div style={{ maxWidth:860, margin:'0 auto' }}>
         <motion.div initial={{ opacity:0,y:28 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.8 }}
-          style={{ textAlign:'center',maxWidth:440,margin:'0 auto 52px' }}>
+          style={{ textAlign:'center', maxWidth:440, margin:'0 auto 40px' }}>
           <p style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.72rem',color:'#0E8F5B',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14,fontWeight:700 }}>One honest comparison</p>
-          <h2 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(2rem,4vw,3rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.025em',margin:0 }}>Why Vestro?</h2>
+          <h2 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(1.8rem,4vw,3rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.025em',margin:0 }}>Why Vestro?</h2>
         </motion.div>
+        <div className="scroll-x">
         <motion.div initial={{ opacity:0,y:28 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.9 }}
-          style={{ background:'#fff',border:'1px solid #E5E8E2',borderRadius:20,overflow:'hidden',boxShadow:'0 8px 40px rgba(15,33,26,0.06)' }}>
+          style={{ background:'#fff',border:'1px solid #E5E8E2',borderRadius:20,overflow:'hidden',boxShadow:'0 8px 40px rgba(15,33,26,0.06)', minWidth: isMobile ? 520 : 'auto' }}>
           <div style={{ display:'grid',gridTemplateColumns:`2fr ${cols.map(()=>'1fr').join(' ')}`,background:'#FAFAF8',borderBottom:'1px solid #E5E8E2' }}>
             <div style={{ padding:'14px 22px',fontSize:'0.7rem',color:'#9AA69F',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em' }}>Feature</div>
             {cols.map(c=>(
@@ -906,6 +917,7 @@ function Comparison() {
             </motion.div>
           ))}
         </motion.div>
+        </div>
       </div>
     </section>
   )
@@ -913,9 +925,10 @@ function Comparison() {
 
 // ─── CTA ──────────────────────────────────────────────────────────────────────
 function CTASection() {
+  const isMobile = useIsMobile()
   const navigate = useNavigate()
   return (
-    <section style={{ background:'linear-gradient(135deg,#0A1710 0%,#0B3D28 50%,#0A1710 100%)',padding:'120px 24px 80px',textAlign:'center',position:'relative',overflow:'hidden' }}>
+    <section style={{ background:'linear-gradient(135deg,#0A1710 0%,#0B3D28 50%,#0A1710 100%)', padding: isMobile ? '72px 20px 60px' : '120px 24px 80px', textAlign:'center', position:'relative', overflow:'hidden' }}>
       <div aria-hidden style={{ position:'absolute',inset:0,pointerEvents:'none' }}>
         <div style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:800,height:600,borderRadius:'50%',background:'radial-gradient(ellipse,rgba(14,143,91,0.12) 0%,transparent 70%)' }}/>
         <svg style={{ position:'absolute',inset:0,width:'100%',height:'100%',opacity:0.03 }}>
@@ -954,9 +967,10 @@ function CTASection() {
 
 // ─── FOOTER ───────────────────────────────────────────────────────────────────
 function Footer() {
+  const isMobile = useIsMobile()
   const navigate = useNavigate()
   return (
-    <footer style={{ background:'#060E09',padding:'60px 48px 36px',borderTop:'1px solid rgba(255,255,255,0.04)' }}>
+    <footer style={{ background:'#060E09', padding: isMobile ? '44px 20px 28px' : '60px 48px 36px', borderTop:'1px solid rgba(255,255,255,0.04)' }}>
       <div style={{ maxWidth:1080,margin:'0 auto' }}>
         <div style={{ display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:40,marginBottom:48 }}>
           <div style={{ maxWidth:280 }}>

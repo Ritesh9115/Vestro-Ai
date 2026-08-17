@@ -4,11 +4,13 @@ import { Plus, Trash2, Bell, BellOff, Eye, ExternalLink } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const verdictColor = (v) => v === 'INVEST' ? '#0E8F5B' : v === 'WATCH' ? '#B8862E' : v === 'SKIP' ? '#C8443A' : '#9AA69F'
 const verdictBg   = (v) => v === 'INVEST' ? '#E4F5EC' : v === 'WATCH' ? '#FBF4E8' : v === 'SKIP' ? '#FBEAE8' : '#F5F7F4'
 
 export default function WatchlistPage() {
+  const isMobile = useIsMobile()
   const [watchlist, setWatchlist] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -68,20 +70,19 @@ export default function WatchlistPage() {
 
   if (loading) return (
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'vspin 0.8s linear infinite' }} />
     </div>
   )
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Watchlist</h1>
-            <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Track stocks and set price alerts</p>
+            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.5rem' : '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Watchlist</h1>
+            {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Track stocks and set price alerts</p>}
           </div>
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowAdd(!showAdd)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: 'linear-gradient(135deg,#0E8F5B,#0B6E46)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem', fontFamily: 'Inter,sans-serif' }}>
@@ -127,7 +128,7 @@ export default function WatchlistPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {watchlist.map((item, i) => (
               <motion.div key={item._id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                style={{ ...card, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                style={{ ...card, padding: '16px', display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: 12, flexDirection: isMobile ? 'column' : 'row' }}>
                 {/* Symbol */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -152,17 +153,17 @@ export default function WatchlistPage() {
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                   <Link to={`/?symbol=${item.symbol}`}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#F5F7F4', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#0F211A', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', background: '#F5F7F4', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#0F211A', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>
                     <ExternalLink size={12} /> Research
                   </Link>
                   <button onClick={() => { setAlertModal(item); setAlertForm({ alertPrice: item.alertPrice || '', alertType: item.alertType || 'above', alertEnabled: item.alertEnabled }) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: item.alertEnabled ? '#FBF4E8' : '#F5F7F4', border: 'none', borderRadius: 8, cursor: 'pointer', color: item.alertEnabled ? '#B8862E' : '#9AA69F', fontSize: '0.8rem', fontWeight: 600 }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', background: item.alertEnabled ? '#FBF4E8' : '#F5F7F4', border: 'none', borderRadius: 8, cursor: 'pointer', color: item.alertEnabled ? '#B8862E' : '#9AA69F', fontSize: '0.8rem', fontWeight: 600 }}>
                     {item.alertEnabled ? <Bell size={12} /> : <BellOff size={12} />} Alert
                   </button>
                   <button onClick={() => removeItem(item.symbol)}
-                    style={{ padding: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#C8443A' }}>
+                    style={{ padding: '7px', background: 'none', border: 'none', cursor: 'pointer', color: '#C8443A' }}>
                     <Trash2 size={14} />
                   </button>
                 </div>

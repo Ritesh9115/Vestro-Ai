@@ -4,6 +4,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown, RefreshCw, PieChart, AlertTrian
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const SECTOR_COLORS = ['#0E8F5B', '#B8862E', '#4A90D9', '#C8443A', '#7B61FF', '#00BCD4', '#FF6B35', '#9C27B0']
 
@@ -24,6 +25,7 @@ function HealthRing({ score }) {
 }
 
 export default function PortfolioPage() {
+  const isMobile = useIsMobile()
   const [holdings, setHoldings] = useState([])
   const [analytics, setAnalytics] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -98,13 +100,13 @@ export default function PortfolioPage() {
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Portfolio</h1>
-            <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Track, analyse and optimise your investments</p>
+            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.5rem' : '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Portfolio</h1>
+            {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Track, analyse and optimise your investments</p>}
           </div>
           <motion.button
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -154,9 +156,8 @@ export default function PortfolioPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '10px 16px', background: '#E4F5EC', borderRadius: 10 }}>
               <div style={{ width: 16, height: 16, border: '2.5px solid #0E8F5B44', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'vspin 0.7s linear infinite', flexShrink: 0 }} />
               <span style={{ fontSize: '0.85rem', color: '#0B6E46', fontWeight: 600 }}>{loadingPortfolio ? 'Loading your portfolio...' : 'Analysing your portfolio...'}</span>
-              <style>{`@keyframes vspin{to{transform:rotate(360deg)}}`}</style>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginBottom: 24 }}>
               {[1,2,3,4,5,6].map(i => (
                 <div key={i} style={{ background: '#fff', border: '1px solid #E5E8E2', borderRadius: 14, padding: 20 }}>
                   <div className="pf-skeleton" style={{ height: 11, width: '60%', marginBottom: 14 }} />
@@ -164,7 +165,7 @@ export default function PortfolioPage() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
               {[1,2,3,4].map(i => (
                 <div key={i} style={{ background: '#fff', border: '1px solid #E5E8E2', borderRadius: 14, padding: 24, height: 170 }}>
                   <div className="pf-skeleton" style={{ height: 16, width: '45%', marginBottom: 18 }} />
@@ -185,7 +186,7 @@ export default function PortfolioPage() {
           <>
             {/* Summary strip */}
             {analytics && !analytics.isEmpty && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginBottom: 24 }}>
                 {[
                   { label: 'Portfolio Value', value: analytics.summary?.totalValue ? `₹${analytics.summary.totalValue.toLocaleString('en-IN')}` : '—' },
                   { label: 'Total Gain/Loss', value: analytics.summary?.totalGain != null ? `${analytics.summary.totalGain >= 0 ? '+' : ''}₹${analytics.summary.totalGain.toLocaleString('en-IN')}` : '—', color: analytics.summary?.totalGain >= 0 ? '#0E8F5B' : '#C8443A' },
@@ -203,10 +204,10 @@ export default function PortfolioPage() {
             )}
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid #E5E8E2', marginBottom: 24 }}>
+            <div className="scroll-x" style={{ display: 'flex', gap: 6, borderBottom: '1px solid #E5E8E2', marginBottom: 24 }}>
               {tabs.map((t) => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
-                  style={{ padding: '12px 4px', marginRight: 20, fontSize: '0.875rem', fontWeight: 600, color: activeTab === t.id ? '#0F211A' : '#9AA69F', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === t.id ? '#0E8F5B' : 'transparent'}`, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                  style={{ padding: '12px 4px', marginRight: isMobile ? 10 : 20, fontSize: '0.875rem', fontWeight: 600, color: activeTab === t.id ? '#0F211A' : '#9AA69F', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === t.id ? '#0E8F5B' : 'transparent'}`, cursor: 'pointer', fontFamily: 'Inter,sans-serif', whiteSpace: 'nowrap' }}>
                   {t.label}
                 </button>
               ))}
@@ -214,7 +215,7 @@ export default function PortfolioPage() {
 
             {/* Overview tab */}
             {activeTab === 'overview' && analytics && !analytics.isEmpty && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                 {/* Health Ring */}
                 <div style={card}>
                   <p style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0F211A', marginBottom: 16 }}>Portfolio Health</p>
@@ -363,13 +364,12 @@ export default function PortfolioPage() {
               </div>
             )}
 
-            {/* AI Insights tab */}
+            {/* AI Insights tab — 2-col strengths/weaknesses on desktop */}
             {activeTab === 'ai' && (
               <div>
                 {loadingAnalytics ? (
                   <div style={{ textAlign: 'center', padding: 60 }}>
-                    <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                    <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'vspin 0.8s linear infinite', margin: '0 auto 12px' }} />
                     <p style={{ color: '#9AA69F', fontSize: '0.875rem' }}>Analysing your portfolio with AI...</p>
                   </div>
                 ) : analytics?.aiSuggestions ? (
@@ -378,7 +378,7 @@ export default function PortfolioPage() {
                       <p style={{ fontWeight: 700, color: '#0F211A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}><Sparkles size={16} color="#0E8F5B" /> AI Assessment</p>
                       <p style={{ color: '#5B6B63', fontSize: '0.9rem', lineHeight: 1.6 }}>{analytics.aiSuggestions.overallAssessment}</p>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
                       {[['Strengths', analytics.aiSuggestions.strengthSummary, '#0E8F5B'], ['Weaknesses', analytics.aiSuggestions.weaknessSummary, '#C8443A']].map(([title, text, color]) => (
                         <div key={title} style={card}>
                           <p style={{ fontWeight: 700, color, fontSize: '0.875rem', marginBottom: 8 }}>{title}</p>
@@ -389,13 +389,13 @@ export default function PortfolioPage() {
                     {analytics.aiSuggestions.suggestions?.map((s, i) => (
                       <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
                         style={{ ...card, marginBottom: 10, cursor: 'pointer' }} onClick={() => setExpandedSuggestion(expandedSuggestion === i ? null : i)}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: 10, flexWrap: 'wrap' }}>
                             <span style={{ background: s.priority === 'HIGH' ? '#FBEAE8' : s.priority === 'MEDIUM' ? '#FBF4E8' : '#E4F5EC', color: s.priority === 'HIGH' ? '#C8443A' : s.priority === 'MEDIUM' ? '#B8862E' : '#0E8F5B', borderRadius: 20, padding: '2px 8px', fontSize: '0.7rem', fontWeight: 700 }}>{s.priority}</span>
                             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F211A' }}>{s.action}</span>
                             {s.symbol && <span style={{ fontSize: '0.8rem', color: '#9AA69F', fontFamily: "'IBM Plex Mono',monospace" }}>• {s.symbol}</span>}
                           </div>
-                          {expandedSuggestion === i ? <ChevronUp size={16} color="#9AA69F" /> : <ChevronDown size={16} color="#9AA69F" />}
+                          {expandedSuggestion === i ? <ChevronUp size={16} color="#9AA69F" style={{ flexShrink: 0 }} /> : <ChevronDown size={16} color="#9AA69F" style={{ flexShrink: 0 }} />}
                         </div>
                         <AnimatePresence>
                           {expandedSuggestion === i && (

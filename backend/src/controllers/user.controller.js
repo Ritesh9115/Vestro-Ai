@@ -34,7 +34,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     }
   }
 
-  const user = await User.findByIdAndUpdate(req.user._id, { $set: updates }, { new: true, runValidators: true });
+  const user = await User.findByIdAndUpdate(req.user._id, { $set: updates }, { returnDocument: 'after', runValidators: true });
 
   res.json({
     message: 'Profile updated.',

@@ -4,11 +4,13 @@ import { Star, StarOff, Trash2, FileDown, Tag, Edit3, Filter, ChevronDown, Chevr
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const verdictColor = (v) => v === 'INVEST' ? '#0E8F5B' : v === 'WATCH' ? '#B8862E' : v === 'SKIP' ? '#C8443A' : '#9AA69F'
 const verdictBg   = (v) => v === 'INVEST' ? '#E4F5EC' : v === 'WATCH' ? '#FBF4E8' : v === 'SKIP' ? '#FBEAE8' : '#F5F7F4'
 
 export default function SavedReportsPage() {
+  const isMobile = useIsMobile()
   const [reports, setReports] = useState([])
   const [pagination, setPagination] = useState({})
   const [page, setPage] = useState(1)
@@ -75,19 +77,18 @@ export default function SavedReportsPage() {
 
   if (loading && reports.length === 0) return (
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ width: 32, height: 32, border: '3px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'vspin 0.8s linear infinite' }} />
     </div>
   )
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Saved Reports</h1>
-          <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Your bookmarked AI research analyses</p>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.5rem' : '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Saved Reports</h1>
+          {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Your bookmarked AI research analyses</p>}
         </div>
 
         {/* Filters */}

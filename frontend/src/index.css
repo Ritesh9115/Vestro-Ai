@@ -4,7 +4,6 @@
   box-sizing: border-box;
 }
 
-
 html {
   scroll-behavior: smooth;
 }
@@ -16,6 +15,8 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent horizontal overflow on mobile */
+  overflow-x: hidden;
 }
 
 .mono {
@@ -26,6 +27,7 @@ body {
   font-family: 'Fraunces', serif;
 }
 
+/* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,3 +45,74 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #9AA69F;
 }
+
+/* ── Global keyframes (used by many components) ─────────── */
+@keyframes vspin {
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  0%   { background-position: -1000px 0; }
+  100% { background-position:  1000px 0; }
+}
+
+/* ── Responsive utilities ───────────────────────────────── */
+
+/* Horizontally scrollable tab bars */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar { display: none; }
+
+/* Page wrapper: full-bleed padding on mobile */
+.page-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+/* Responsive grids */
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Card base */
+.card {
+  background: #fff;
+  border: 1px solid #E5E8E2;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+/* Mobile-specific overrides */
+@media (max-width: 767px) {
+  .page-wrap {
+    padding: 20px 16px 80px;
+  }
+
+  /* Force 1-col on mobile for all auto-fit grids */
+  .grid-auto {
+    grid-template-columns: 1fr;
+  }
+
+  /* Hide on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Ensure inputs are large enough to tap */
+  input, select, textarea, button {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}
+
+@media (min-width: 768px) {
+  /* Hide on desktop */
+  .mobile-only {
+    display: none !important;
+  }
+}
+

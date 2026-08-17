@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { TrendingUp, Zap, ChevronRight, Activity, Target, Calendar, IndianRupee, ArrowRight, Search } from 'lucide-react'
 import api, { searchCompanies } from '../services/api'
 import toast from 'react-hot-toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const MODULES = [
   { id: 'scenario', label: '📊 Scenario Analysis', desc: 'Adjust financial levers live and see AI verdict change in real-time' },
@@ -94,7 +95,6 @@ function CompanySearch({ onSelect, label }) {
 
   return (
     <div>
-      <style>{`@keyframes vspin{to{transform:rotate(360deg)}}`}</style>
       <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9AA69F', pointerEvents: 'none' }} />
@@ -587,25 +587,27 @@ function GeneralModule() {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function SimulatorPage() {
+  const isMobile = useIsMobile()
   const [activeModule, setActiveModule] = useState('scenario')
 
   return (
-    <div style={{ background: '#FBFBF8', minHeight: '100vh', padding: '32px 24px 80px' }}>
+    <div style={{ background: '#FBFBF8', minHeight: '100vh', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ marginBottom: 28 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#E4F5EC', borderRadius: 20, padding: '6px 14px', marginBottom: 10 }}>
             <Zap size={13} color="#0E8F5B" />
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0E8F5B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Scenario Lab</span>
           </div>
-          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '2rem', fontWeight: 700, color: '#0F211A', margin: '0 0 6px' }}>Investment Simulator</h1>
-          <p style={{ color: '#5B6B63', fontSize: '0.9rem' }}>Company-specific scenario analysis, stress tests, and what-if modelling powered by AI.</p>
+          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.6rem' : '2rem', fontWeight: 700, color: '#0F211A', margin: '0 0 6px' }}>Investment Simulator</h1>
+          {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.9rem' }}>Company-specific scenario analysis, stress tests, and what-if modelling powered by AI.</p>}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+        {/* Module selector — scrollable on mobile */}
+        <div className="scroll-x" style={{ display: 'flex', gap: 10, marginBottom: 20, paddingBottom: 2 }}>
           {MODULES.map(m => (
             <button key={m.id} onClick={() => setActiveModule(m.id)}
-              style={{ padding: '10px 16px', border: `2px solid ${activeModule === m.id ? '#0E8F5B' : '#E5E8E2'}`, borderRadius: 10, background: activeModule === m.id ? '#E4F5EC' : '#fff', cursor: 'pointer' }}>
-              <p style={{ fontWeight: 700, fontSize: '0.85rem', color: activeModule === m.id ? '#0E8F5B' : '#0F211A', margin: 0 }}>{m.label}</p>
+              style={{ padding: '10px 14px', border: `2px solid ${activeModule === m.id ? '#0E8F5B' : '#E5E8E2'}`, borderRadius: 10, background: activeModule === m.id ? '#E4F5EC' : '#fff', cursor: 'pointer', flexShrink: 0 }}>
+              <p style={{ fontWeight: 700, fontSize: '0.82rem', color: activeModule === m.id ? '#0E8F5B' : '#0F211A', margin: 0, whiteSpace: 'nowrap' }}>{m.label}</p>
             </button>
           ))}
         </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const verdictColor = (v) => v === 'INVEST' ? '#0E8F5B' : v === 'WATCH' ? '#B8862E' : v === 'SKIP' ? '#C8443A' : '#9AA69F'
 const verdictBg   = (v) => v === 'INVEST' ? '#E4F5EC' : v === 'WATCH' ? '#FBF4E8' : v === 'SKIP' ? '#FBEAE8' : '#F5F7F4'
@@ -13,6 +14,7 @@ const verdictBg   = (v) => v === 'INVEST' ? '#E4F5EC' : v === 'WATCH' ? '#FBF4E8
 export default function UserDashboardPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -51,18 +53,18 @@ export default function UserDashboardPage() {
 
   return (
     <div style={{ background: '#FBFBF8', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '36px 24px 80px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '36px 24px 80px' }}>
 
         {/* Welcome header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
             <p style={{ fontSize: '0.8rem', color: '#9AA69F', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
               {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}
             </p>
-            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: '2rem', fontWeight: 700, color: '#0F211A', margin: 0 }}>
+            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.6rem' : '2rem', fontWeight: 700, color: '#0F211A', margin: 0 }}>
               {user?.name?.split(' ')[0]} 👋
             </h1>
-            <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 6 }}>Here's your investment intelligence overview</p>
+            {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 6 }}>Here's your investment intelligence overview</p>}
           </motion.div>
           <button onClick={handleLogout}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'none', border: '1px solid #E5E8E2', borderRadius: 10, cursor: 'pointer', color: '#9AA69F', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -72,7 +74,7 @@ export default function UserDashboardPage() {
 
         {/* Stats row */}
         {dashboard?.stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 32 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 28 }}>
             {[
               { label: 'Researches Done', value: dashboard.stats.researchCount, icon: <TrendingUp size={18} color="#0E8F5B" /> },
               { label: 'Portfolio Holdings', value: dashboard.stats.portfolioHoldings, icon: <BarChart2 size={18} color="#4A90D9" /> },
@@ -116,11 +118,11 @@ export default function UserDashboardPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 24 }}>
           {/* Quick Links */}
           <div>
             <p style={{ fontWeight: 700, color: '#0F211A', fontSize: '0.9rem', marginBottom: 16 }}>Quick Access</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
               {quickLinks.map((l, i) => (
                 <motion.div key={l.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                   <Link to={l.path} style={{ textDecoration: 'none' }}>
