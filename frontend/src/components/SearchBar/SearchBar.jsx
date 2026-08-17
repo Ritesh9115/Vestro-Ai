@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, ArrowRight, TrendingUp, X } from 'lucide-react'
 import { searchCompanies } from '../../services/api'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const QUICK_PICKS = [
   { symbol: 'AAPL', name: 'Apple' },
@@ -27,6 +28,7 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
   const [showDropdown, setShowDropdown] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const wrapperRef = useRef(null)
   const inputRef = useRef(null)
   const debouncedQuery = useDebounce(inputValue, 280)
@@ -99,11 +101,12 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
       <form onSubmit={handleSubmit}>
+        {/* Input row */}
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 10,
             background: '#FFFFFF', border: `1.5px solid ${showDropdown && suggestions.length > 0 ? '#0E8F5B' : '#E5E8E2'}`,
-            borderRadius: showDropdown && suggestions.length > 0 ? '14px 14px 0 0' : 14,
+            borderRadius: showDropdown && suggestions.length > 0 ? (isMobile ? '14px 14px 0 0' : '14px 14px 0 0') : 14,
             padding: large ? '8px 8px 8px 18px' : '6px 6px 6px 14px',
             boxShadow: '0 1px 2px rgba(15,33,26,0.04), 0 8px 24px rgba(15,33,26,0.05)',
             transition: 'border-color 0.2s, border-radius 0.2s',
@@ -133,19 +136,40 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
               <X size={14} />
             </button>
           )}
+          {/* Show Analyse inline on desktop */}
+          {!isMobile && (
+            <button
+              type="submit"
+              style={{
+                background: 'linear-gradient(135deg, #0E8F5B 0%, #0B6E46 100%)',
+                color: '#fff', border: 'none', padding, borderRadius: 10,
+                fontWeight: 600, fontSize, whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 8,
+                cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Analyse <ArrowRight size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Analyse button below input on mobile */}
+        {isMobile && (
           <button
             type="submit"
             style={{
+              width: '100%', marginTop: 10,
               background: 'linear-gradient(135deg, #0E8F5B 0%, #0B6E46 100%)',
-              color: '#fff', border: 'none', padding, borderRadius: 10,
-              fontWeight: 600, fontSize, whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', gap: 8,
+              color: '#fff', border: 'none', padding: large ? '13px' : '11px',
+              borderRadius: 12, fontWeight: 700, fontSize: '1rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+              boxShadow: '0 4px 16px rgba(14,143,91,0.25)',
             }}
           >
-            Analyse <ArrowRight size={14} />
+            Analyse <ArrowRight size={16} />
           </button>
-        </div>
+        )}
       </form>
 
       {/* Live suggestions dropdown */}

@@ -563,10 +563,10 @@ function HeroSection() {
 
           {/* CTAs */}
           <motion.div initial={{ opacity:0,scale:0.95 }} animate={{ opacity:1,scale:1 }} transition={{ delay:1.1,duration:0.6 }}
-            style={{ display:'flex',gap:12,flexWrap:'wrap' }}>
+            style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
             <motion.button onClick={()=>navigate('/research')}
               whileHover={{ scale:1.04,boxShadow:'0 8px 32px rgba(14,143,91,0.3)' }} whileTap={{ scale:0.97 }}
-              style={{ display:'flex',alignItems:'center',gap:10,padding:'14px 32px',background:'linear-gradient(135deg,#0E8F5B,#0B6E46)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,fontSize:'1rem',cursor:'pointer',fontFamily:"'Inter',sans-serif",boxShadow:'0 4px 16px rgba(14,143,91,0.25)' }}>
+              style={{ display:'flex',alignItems:'center',gap:10,padding:'14px 28px',background:'linear-gradient(135deg,#0E8F5B,#0B6E46)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,fontSize:'1rem',cursor:'pointer',fontFamily:"'Inter',sans-serif",boxShadow:'0 4px 16px rgba(14,143,91,0.25)' }}>
               Start Research <ArrowRight size={17}/>
             </motion.button>
             <motion.button onClick={()=>navigate('/learn')}
@@ -582,9 +582,9 @@ function HeroSection() {
           </motion.p>
         </div>
 
-        {/* RIGHT: Product image — hidden on mobile to save space */}
-        {!isMobile && (<motion.div initial={{ opacity:0,x:60,scale:0.92 }} animate={{ opacity:1,x:0,scale:1 }}
-          transition={{ delay:0.4,duration:1,ease:[0.22,1,0.36,1] }} style={{ position:'relative', perspective: 1500 }}>
+        {/* RIGHT: Product image */}
+        <motion.div initial={{ opacity:0,x:isMobile?0:60,y:isMobile?30:0,scale:0.92 }} animate={{ opacity:1,x:0,y:0,scale:1 }}
+          transition={{ delay:0.4,duration:1,ease:[0.22,1,0.36,1] }} style={{ position:'relative', perspective: 1500, marginTop: isMobile?20:0 }}>
           <motion.div style={{ position: 'relative', width: '100%', transformStyle: 'preserve-3d', rotateY }}>
             {/* FRONT side */}
             <div style={{ backfaceVisibility: 'hidden', position: 'relative' }}>
@@ -609,8 +609,7 @@ function HeroSection() {
               <div style={{ marginTop: 20, color: '#0E8F5B', fontFamily: "'Fraunces', serif", fontSize: '1.4rem', fontWeight: 700 }}>Vestro AI</div>
             </div>
           </motion.div>
-          </motion.div>
-        )}
+        </motion.div>
       </div>
 
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:2 }}
@@ -745,11 +744,11 @@ function OrbitingSection() {
           ))}
         </motion.div>
         <motion.div initial={{ opacity:0,scale:0.8 }} animate={inView?{ opacity:1,scale:1 }:{}} transition={{ delay:0.3,duration:0.9,ease:[0.22,1,0.36,1] }}
-          style={{ position:'relative',width:380,height:380,margin:'0 auto' }}>
-          <div style={{ position:'absolute',top:'50%',left:'50%',width:340,height:340,marginLeft:-170,marginTop:-170,borderRadius:'50%',border:'1px dashed rgba(14,143,91,0.12)' }}/>
-          <div style={{ position:'absolute',top:'50%',left:'50%',width:240,height:240,marginLeft:-120,marginTop:-120,borderRadius:'50%',border:'1px dashed rgba(14,143,91,0.18)' }}/>
-          <OrbitRing items={ORBIT_ITEMS_2} radius={162} duration={16} dir={1}/>
-          <OrbitRing items={ORBIT_ITEMS_1} radius={108} duration={12} dir={-1}/>
+          style={{ position:'relative', width: isMobile ? 300 : 380, height: isMobile ? 300 : 380, margin:'0 auto', overflow: 'hidden' }}>
+          <div style={{ position:'absolute',top:'50%',left:'50%',width: isMobile ? 260:340,height: isMobile ? 260:340,marginLeft: isMobile?-130:-170,marginTop: isMobile?-130:-170,borderRadius:'50%',border:'1px dashed rgba(14,143,91,0.12)' }}/>
+          <div style={{ position:'absolute',top:'50%',left:'50%',width: isMobile ? 180:240,height: isMobile ? 180:240,marginLeft: isMobile?-90:-120,marginTop: isMobile?-90:-120,borderRadius:'50%',border:'1px dashed rgba(14,143,91,0.18)' }}/>
+          <OrbitRing items={ORBIT_ITEMS_2} radius={isMobile ? 122 : 162} duration={16} dir={1}/>
+          <OrbitRing items={ORBIT_ITEMS_1} radius={isMobile ? 80 : 108} duration={12} dir={-1}/>
           <div style={{ position:'absolute',top:'50%',left:'50%',width:72,height:72,marginLeft:-36,marginTop:-36,borderRadius:20,background:'linear-gradient(135deg,#0E8F5B,#0B6E46)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 32px rgba(14,143,91,0.4)',zIndex:10 }}>
             <span style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'1.2rem',fontWeight:800,color:'#fff' }}>V</span>
           </div>
@@ -767,10 +766,12 @@ function IconCloudSection() {
   return (
     <section ref={ref} style={{ background:'#F5F7F4', padding: isMobile ? '60px 20px' : '100px 24px' }}>
       <div style={{ maxWidth:1080, margin:'0 auto', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 60, alignItems:'center' }}>
-        <motion.div initial={{ opacity:0,scale:0.8 }} animate={inView?{ opacity:1,scale:1 }:{}} transition={{ duration:1,ease:[0.22,1,0.36,1] }}
-          style={{ display:'flex',justifyContent:'center' }}>
-          <IconCloud3D/>
-        </motion.div>
+        {!isMobile && (
+          <motion.div initial={{ opacity:0,scale:0.8 }} animate={inView?{ opacity:1,scale:1 }:{}} transition={{ duration:1,ease:[0.22,1,0.36,1] }}
+            style={{ display:'flex',justifyContent:'center' }}>
+            <IconCloud3D/>
+          </motion.div>
+        )}
         <motion.div initial={{ opacity:0,x:40 }} animate={inView?{ opacity:1,x:0 }:{}} transition={{ delay:0.2,duration:0.8 }}>
           <p style={{ fontFamily:"'IBM Plex Mono',monospace",fontSize:'0.72rem',color:'#0E8F5B',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14,fontWeight:700 }}>Everything included</p>
           <h2 style={{ fontFamily:"'Fraunces',serif",fontSize:'clamp(2rem,4vw,3rem)',fontWeight:600,color:'#0F211A',letterSpacing:'-0.025em',margin:'0 0 28px' }}>
