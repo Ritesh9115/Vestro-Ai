@@ -219,6 +219,7 @@ const deleteHolding = asyncHandler(async (req, res) => {
  * Full AI-powered portfolio analytics with all 13 metrics.
  */
 const getPortfolioAnalytics = asyncHandler(async (req, res) => {
+  const lang = req.query.lang || 'en';
   const holdings = await PortfolioHolding.find({ userId: req.user._id });
 
   if (holdings.length === 0) {
@@ -334,7 +335,7 @@ Return a JSON object with:
   "weaknessSummary": "Key areas to improve",
   "disclaimer": "For educational purposes only. Not financial advice."
 }
-
+${lang === 'hi' ? '\nLANGUAGE: Write ALL string values (overallAssessment, action, reason, strengthSummary, weaknessSummary, disclaimer) in professional Financial Hindi (Hinglish blend is fine). Keep JSON keys in English.' : ''}
 Return only valid JSON. Maximum 5 suggestions.`;
 
     aiSuggestions = await callGemini(prompt, { json: true, temperature: 0.2 });

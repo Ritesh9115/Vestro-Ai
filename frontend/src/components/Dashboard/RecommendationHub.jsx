@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Link as LinkIcon, Building2 } from 'lucide-react';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 function CompetitorBadge({ verdict }) {
   const colors = {
@@ -118,6 +119,7 @@ function CompanyCard({ name, badge, summary }) {
 }
 
 export default function RecommendationHub({ aiAnalysis }) {
+  const isMobile = useIsMobile();
   if (!aiAnalysis) return null;
 
   const { recommendationHub } = aiAnalysis;
@@ -131,7 +133,7 @@ export default function RecommendationHub({ aiAnalysis }) {
           background: '#FFFFFF',
           border: '1px solid #E5E8E2',
           borderRadius: 24,
-          padding: 48,
+          padding: isMobile ? 24 : 48,
           marginBottom: 24,
           textAlign: 'center',
           boxShadow: '0 4px 12px rgba(15,33,26,0.03)',
@@ -153,7 +155,7 @@ export default function RecommendationHub({ aiAnalysis }) {
         background: '#FFFFFF',
         border: '1px solid #E5E8E2',
         borderRadius: 24,
-        padding: 32,
+        padding: isMobile ? 20 : 32,
         marginBottom: 24,
         boxShadow: '0 4px 12px rgba(15,33,26,0.03)',
       }}
@@ -178,7 +180,7 @@ export default function RecommendationHub({ aiAnalysis }) {
               Source: Financial APIs
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '240px' : '280px'}, 1fr))`, gap: 16 }}>
             {competitors.slice(0, 6).map((comp, idx) => (
               <CompanyCard
                 key={`comp-${idx}`}
@@ -202,7 +204,7 @@ export default function RecommendationHub({ aiAnalysis }) {
               Source: AI + Verification
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '240px' : '280px'}, 1fr))`, gap: 16 }}>
             {relatedCompanies.slice(0, 6).map((rel, idx) => (
               <CompanyCard
                 key={`rel-${idx}`}

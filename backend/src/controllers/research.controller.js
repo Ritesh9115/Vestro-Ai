@@ -13,15 +13,15 @@ const { fetch: undiciFetch, ProxyAgent } = require('undici');
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const researchCache = new Map(); // symbol → { data, expiresAt }
 
-function getCached(symbol) {
-  const entry = researchCache.get(symbol?.toUpperCase());
+function getCached(key) {
+  const entry = researchCache.get(key);
   if (entry && Date.now() < entry.expiresAt) return entry.data;
-  researchCache.delete(symbol?.toUpperCase());
+  researchCache.delete(key);
   return null;
 }
 
-function setCached(symbol, data) {
-  researchCache.set(symbol?.toUpperCase(), { data, expiresAt: Date.now() + CACHE_TTL_MS });
+function setCached(key, data) {
+  researchCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
   // Cap cache at 50 entries
   if (researchCache.size > 50) {
     const firstKey = researchCache.keys().next().value;
@@ -412,7 +412,7 @@ async function fetchPeers(symbol) {
   return response.data?.[0]?.peersList || [];
 }
 
-function buildGeminiPrompt(company, financials, news, peers) {
+function buildGeminiPrompt(company, financials, news, peers, lang) {
   const headlines = news.slice(0, 5).map(n => n.title).join(' | ');
 
   return `You are an Explainable AI Investment Research Analyst. Your role is to produce a rigorous, evidence-based investment verdict.
@@ -424,10 +424,20 @@ CRITICAL RULES:
 - Missing data is NOT a red flag — use available data to make a fair assessment.
 - Blue-chip, large-cap, established companies with stable revenue should generally score INVEST unless there are clear red flags.
 - Low confidence should only push you toward WATCH if there are genuine concerns, not just missing data.
-- All monetary values MUST use ₹ (e.g. ₹100, ₹10L, ₹5Cr). Never use $.
-- Return ONLY valid JSON. No markdown fences.
+- Return ONLY valid JSON. No markdown fences. No trailing commas.
 - Health Score provided by backend: ${financials.calculatedHealthScore}/100
 - Risk Flags: [${financials.calculatedRiskFlags.join(', ') || 'None'}]
+${lang === 'en' ? `
+LANGUAGE RULE (STRICT):
+- Respond ONLY in English. No Hindi, no Hinglish, no mixed language at all.
+- All text values must be formal, professional English used by institutional analysts.` : ''}
+${lang === 'hi' ? `
+LANGUAGE RULE — HINGLISH (ROMAN SCRIPT):
+- Write ALL text values in natural Hinglish — the casual Hindi-English mix spoken by Indian investors and millennials.
+- Use ROMAN SCRIPT only (no Devanagari). Write the way Indians talk: "Company ka revenue kaafi strong hai", "margins industry se upar hain", "long-term ke liye ek solid bet hai".
+- Do NOT write pure Hindi. Do NOT write pure English. Mix them naturally.
+- Example good style: "Alphabet ek dominant tech leader hai jiska AI aur cloud business future-ready position me hai. FCF bahut strong hai, aur buybacks se shareholder value bhi banta rahega."
+- Keep JSON keys in English. Only translate the string values.` : ''}
 
 COMPANY: ${company.name} (${company.symbol})
 SECTOR: ${company.sector} | EXCHANGE: ${company.exchange} | MARKET CAP: ${company.marketCap}
@@ -575,9 +585,9 @@ async function verifyCompanyName(companyName) {
   return null;
 }
 
-async function generateGeminiAnalysis(company, financials, news, peers) {
-  const prompt = buildGeminiPrompt(company, financials, news, peers);
-  return await callGemini(prompt, { json: true, temperature: 0.1 });
+async function generateGeminiAnalysis(company, financials, news, peers, lang) {
+  const prompt = buildGeminiPrompt(company, financials, news, peers, lang);
+  return await callGemini(prompt, { json: true, temperature: 0.1, maxOutputTokens: 16384 });
 }
 
 async function resolveCompanyWithAI(query) {
@@ -625,8 +635,11 @@ Output:`;
   return null;
 }
 
+const inFlightRequests = new Map();
+
 const runResearch = asyncHandler(async (req, res) => {
   const { symbol } = req.params;
+  const lang = req.query.lang || 'en';
 
   if (!symbol || symbol.trim() === '') {
     return res.status(400).json({ error: 'Stock symbol is required.' });
@@ -635,10 +648,10 @@ const runResearch = asyncHandler(async (req, res) => {
   const rawSymbol = symbol.trim();
   const cleanSymbol = decodeURIComponent(rawSymbol).toUpperCase().trim();
 
-  const cachedData = getCached(cleanSymbol);
+  const cacheKey = `${cleanSymbol}_${lang}`;
+  const cachedData = getCached(cacheKey);
   if (cachedData) {
-    console.log(`\nServing ${cleanSymbol} from cache`);
-    // Still record history async for trending stats, but don't await
+    console.log(`\nServing ${cacheKey} from cache`);
     if (req.user) {
       ResearchHistory.create({
         user: req.user._id,
@@ -650,7 +663,6 @@ const runResearch = asyncHandler(async (req, res) => {
         verdict: cachedData.aiAnalysis?.verdict,
         confidence: cachedData.aiAnalysis?.confidence
       }).catch(err => console.error("History logging error:", err));
-      
       updateAnalyticsOnResearch(
         cachedData.company.symbol, cachedData.company.name, cachedData.company.sector, 
         cachedData.company.exchange, cachedData.aiAnalysis?.verdict, 
@@ -660,152 +672,192 @@ const runResearch = asyncHandler(async (req, res) => {
     return res.json(cachedData);
   }
 
-  let matchResolution = {
-    query: cleanSymbol,
-    symbol: null,
-    name: null,
-    confidenceScore: 0,
-    matchReason: null
-  };
-
-  let company, incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics;
-
-  console.log(`\nSearching Company...`);
-
-  let finalSearchSymbol = null;
-  let verifiedName = cleanSymbol;
-
-  const searchVariations = [...new Set([
-    cleanSymbol,
-    cleanSymbol.replace(/ltd\.?/i, '').trim(),
-    cleanSymbol.replace(/limited/i, '').trim(),
-    cleanSymbol.replace(/\s+/g, ' ').trim()
-  ])];
-
-  for (const queryVariant of searchVariations) {
-    if (finalSearchSymbol) break;
+  if (inFlightRequests.has(cacheKey)) {
+    console.log(`\nJoining in-flight request for ${cacheKey}`);
     try {
-      const searchRes = await yf.search(queryVariant);
-      const bestQuote = findBestYahooQuote(searchRes?.quotes);
-      if (bestQuote && bestQuote.symbol) {
-        finalSearchSymbol = bestQuote.symbol.toUpperCase();
-        matchResolution = {
-          query: cleanSymbol,
-          symbol: finalSearchSymbol,
-          name: bestQuote.shortname || bestQuote.longname || finalSearchSymbol,
-          confidenceScore: 90,
-          matchReason: 'Closest match from search.'
-        };
-        verifiedName = matchResolution.name;
-      }
-    } catch (searchErr) {
-      console.log(`Search variant failed: ${searchErr.message}`);
+      const result = await inFlightRequests.get(cacheKey);
+      return res.json(result);
+    } catch (err) {
+      // If the in-flight request fails, just let it throw to the asyncHandler
+      throw err;
     }
   }
 
-  if (!finalSearchSymbol) {
-    const llmResolution = await resolveCompanyWithAI(cleanSymbol);
-    if (llmResolution && llmResolution.companyName) {
-      verifiedName = llmResolution.companyName;
-      const aiVariations = [...new Set([
-        llmResolution.companyName,
-        llmResolution.companyName.replace(/ltd\.?/i, '').trim(),
-        llmResolution.companyName.replace(/limited/i, '').trim()
-      ])];
+  const researchPromise = (async () => {
 
-      for (const queryVariant of aiVariations) {
-        if (finalSearchSymbol) break;
-        try {
-          const aiSearchRes = await yf.search(queryVariant);
-          const bestQuote = findBestYahooQuote(aiSearchRes?.quotes);
-          if (bestQuote && bestQuote.symbol) {
-            finalSearchSymbol = bestQuote.symbol.toUpperCase();
-            matchResolution = {
-              query: cleanSymbol,
-              symbol: finalSearchSymbol,
-              name: bestQuote.shortname || bestQuote.longname || llmResolution.companyName,
-              confidenceScore: llmResolution.confidenceScore,
-              matchReason: llmResolution.matchReason
-            };
-          }
-        } catch (aiSearchErr) {
-          console.log(`AI Search variant failed: ${aiSearchErr.message}`);
-        }
-      }
+
+  let crossLangCache = null;
+  const altLangs = lang === 'en' ? ['hi'] : ['en'];
+  for (const altLang of altLangs) {
+    const altData = getCached(`${cleanSymbol}_${altLang}`);
+    if (altData) {
+      crossLangCache = altData;
+      break;
     }
   }
 
-  let searchTarget = finalSearchSymbol;
+  let company, financials, news, peers, matchResolution;
 
-  if (!finalSearchSymbol) {
-    if (config.fmpKey) {
-      const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(verifiedName)}&limit=5&apikey=${config.fmpKey}`;
+  if (crossLangCache) {
+    console.log(`\nReusing financial data from ${cleanSymbol} (${altLangs[0]} cache) for ${lang} translation...`);
+    company = crossLangCache.company;
+    financials = crossLangCache.financials;
+    news = crossLangCache.news;
+    peers = crossLangCache.peers;
+    matchResolution = crossLangCache.matchResolution;
+  } else {
+    matchResolution = {
+      query: cleanSymbol,
+      symbol: null,
+      name: null,
+      confidenceScore: 0,
+      matchReason: null
+    };
+
+    let incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics;
+
+    console.log(`\nSearching Company...`);
+
+    let finalSearchSymbol = null;
+    let verifiedName = cleanSymbol;
+
+    const searchVariations = [...new Set([
+      cleanSymbol,
+      cleanSymbol.replace(/ltd\.?/i, '').trim(),
+      cleanSymbol.replace(/limited/i, '').trim(),
+      cleanSymbol.replace(/\s+/g, ' ').trim()
+    ])];
+
+    for (const queryVariant of searchVariations) {
+      if (finalSearchSymbol) break;
       try {
-        const fmpSearchRes = await axios.get(fmpSearchUrl, { timeout: 8000 });
-        const sortedFmp = sortFMPResults(fmpSearchRes.data || []);
-        if (sortedFmp.length > 0) {
-          searchTarget = sortedFmp[0].symbol;
-          matchResolution.symbol = searchTarget;
-          matchResolution.name = sortedFmp[0].name;
-          matchResolution.matchReason = matchResolution.matchReason || 'Resolved via fallback search.';
+        const searchRes = await yf.search(queryVariant);
+        const bestQuote = findBestYahooQuote(searchRes?.quotes);
+        if (bestQuote && bestQuote.symbol) {
+          finalSearchSymbol = bestQuote.symbol.toUpperCase();
+          matchResolution = {
+            query: cleanSymbol,
+            symbol: finalSearchSymbol,
+            name: bestQuote.shortname || bestQuote.longname || finalSearchSymbol,
+            confidenceScore: 90,
+            matchReason: 'Closest match from search.'
+          };
+          verifiedName = matchResolution.name;
         }
-      } catch (e) {
-        console.log(`Fallback FMP search failed: ${e.message}`);
+      } catch (searchErr) {
+        console.log(`Search variant failed: ${searchErr.message}`);
       }
     }
-  }
 
-  if (!searchTarget) {
-    throw createError(`Company not found.`, 404);
-  }
+    if (!finalSearchSymbol) {
+      const llmResolution = await resolveCompanyWithAI(cleanSymbol);
+      if (llmResolution && llmResolution.companyName) {
+        verifiedName = llmResolution.companyName;
+        const aiVariations = [...new Set([
+          llmResolution.companyName,
+          llmResolution.companyName.replace(/ltd\.?/i, '').trim(),
+          llmResolution.companyName.replace(/limited/i, '').trim()
+        ])];
 
-  console.log("Trying FMP Financials...");
-  try {
-    const fmpData = await fetchFromFMP(searchTarget);
-    company = fmpData.company;
-    incomeStatements = fmpData.incomeStatements;
-    balanceSheets = fmpData.balanceSheets;
-    cashFlows = fmpData.cashFlows;
-    ratios = fmpData.ratios;
-    keyMetrics = fmpData.keyMetrics;
-    console.log("✓ FMP Success");
-  } catch (err) {
-    console.log("⚠ FMP Failed");
-    console.log(`Reason: ${err.message}`);
-    console.log("Switching to Yahoo...");
+        for (const queryVariant of aiVariations) {
+          if (finalSearchSymbol) break;
+          try {
+            const aiSearchRes = await yf.search(queryVariant);
+            const bestQuote = findBestYahooQuote(aiSearchRes?.quotes);
+            if (bestQuote && bestQuote.symbol) {
+              finalSearchSymbol = bestQuote.symbol.toUpperCase();
+              matchResolution = {
+                query: cleanSymbol,
+                symbol: finalSearchSymbol,
+                name: bestQuote.shortname || bestQuote.longname || llmResolution.companyName,
+                confidenceScore: llmResolution.confidenceScore,
+                matchReason: llmResolution.matchReason
+              };
+            }
+          } catch (aiSearchErr) {
+            console.log(`AI Search variant failed: ${aiSearchErr.message}`);
+          }
+        }
+      }
+    }
+
+    let searchTarget = finalSearchSymbol;
+
+    if (!finalSearchSymbol) {
+      if (config.fmpKey) {
+        const fmpSearchUrl = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(verifiedName)}&limit=5&apikey=${config.fmpKey}`;
+        try {
+          const fmpSearchRes = await axios.get(fmpSearchUrl, { timeout: 8000 });
+          const sortedFmp = sortFMPResults(fmpSearchRes.data || []);
+          if (sortedFmp.length > 0) {
+            searchTarget = sortedFmp[0].symbol;
+            matchResolution.symbol = searchTarget;
+            matchResolution.name = sortedFmp[0].name;
+            matchResolution.matchReason = matchResolution.matchReason || 'Resolved via fallback search.';
+          }
+        } catch (e) {
+          console.log(`Fallback FMP search failed: ${e.message}`);
+        }
+      }
+    }
+
+    if (!searchTarget) {
+      throw createError(`Company not found.`, 404);
+    }
+
+    console.log("Trying FMP Financials...");
     try {
-      const yahooData = await fetchFromYahoo(searchTarget);
-      company = yahooData.company;
-      incomeStatements = yahooData.incomeStatements;
-      balanceSheets = yahooData.balanceSheets;
-      cashFlows = yahooData.cashFlows;
-      ratios = yahooData.ratios;
-      keyMetrics = yahooData.keyMetrics;
-    } catch (yahooErr) {
-      throw createError(`Company found successfully, but financial statements are currently unavailable from all providers. (${yahooErr.message})`, 404);
+      const fmpData = await fetchFromFMP(searchTarget);
+      company = fmpData.company;
+      incomeStatements = fmpData.incomeStatements;
+      balanceSheets = fmpData.balanceSheets;
+      cashFlows = fmpData.cashFlows;
+      ratios = fmpData.ratios;
+      keyMetrics = fmpData.keyMetrics;
+      console.log("✓ FMP Success");
+    } catch (err) {
+      console.log("⚠ FMP Failed");
+      console.log(`Reason: ${err.message}`);
+      console.log("Switching to Yahoo...");
+      try {
+        const yahooData = await fetchFromYahoo(searchTarget);
+        company = yahooData.company;
+        incomeStatements = yahooData.incomeStatements;
+        balanceSheets = yahooData.balanceSheets;
+        cashFlows = yahooData.cashFlows;
+        ratios = yahooData.ratios;
+        keyMetrics = yahooData.keyMetrics;
+      } catch (yahooErr) {
+        throw createError(`Company found successfully, but financial statements are currently unavailable from all providers. (${yahooErr.message})`, 404);
+      }
+    }
+
+    console.log("Building Financial Summary...");
+    financials = buildFinancialSummary(incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics);
+
+    news = [];
+    try {
+      news = await fetchNews(company.name, company.symbol);
+    } catch (e) {
+      console.log(`Fetch News failed: ${e.message}`);
+    }
+
+    peers = [];
+    try {
+      peers = await fetchPeers(company.symbol);
+    } catch (e) {
+      console.log(`Fetch Peers failed: ${e.message}`);
     }
   }
 
-  console.log("Building Financial Summary...");
-  const financials = buildFinancialSummary(incomeStatements, balanceSheets, cashFlows, ratios, keyMetrics);
-
-  let news = [];
+  console.log(`Generating AI Analysis (Language: ${lang})...`);
+  let aiAnalysis;
   try {
-    news = await fetchNews(company.name, company.symbol);
+    aiAnalysis = await generateGeminiAnalysis(company, financials, news, peers, lang);
+    console.log("✓ AI Analysis Complete");
   } catch (e) {
-    console.log(`Fetch News failed: ${e.message}`);
+    console.log(`AI Analysis failed: ${e.message}`);
   }
-
-  let peers = [];
-  try {
-    peers = await fetchPeers(company.symbol);
-  } catch (e) {
-    console.log(`Fetch Peers failed: ${e.message}`);
-  }
-
-  console.log("Generating AI Analysis...");
-  const aiAnalysis = await generateGeminiAnalysis(company, financials, news, peers);
-  console.log("✓ Research Complete");
 
   if (aiAnalysis && aiAnalysis.recommendationHub) {
     const verifiedRelated = [];
@@ -837,7 +889,21 @@ const runResearch = asyncHandler(async (req, res) => {
     generatedAt: new Date().toISOString(),
   };
 
-  setCached(cleanSymbol, responsePayload);
+  setCached(cacheKey, responsePayload);
+  return responsePayload;
+  })();
+
+  inFlightRequests.set(cacheKey, researchPromise);
+
+  let responsePayload;
+  try {
+    responsePayload = await researchPromise;
+  } catch (err) {
+    throw err;
+  } finally {
+    inFlightRequests.delete(cacheKey);
+  }
+
   res.json(responsePayload);
 
   // ─── Post-response: persist to history + update analytics (non-blocking) ─────
@@ -847,17 +913,17 @@ const runResearch = asyncHandler(async (req, res) => {
       try {
         await ResearchHistory.create({
           userId: req.user._id,
-          symbol: company.symbol,
-          companyName: company.name,
-          sector: company.sector,
-          exchange: company.exchange,
-          verdict: aiAnalysis?.verdict,
-          confidence: aiAnalysis?.confidence,
-          healthScore: aiAnalysis?.healthScore || financials?.calculatedHealthScore,
-          decisionStrength: aiAnalysis?.decisionStrength,
-          dimensionScores: aiAnalysis?.dimensionScores,
-          topReasons: aiAnalysis?.topReasons,
-          keyRisks: aiAnalysis?.keyRisks,
+          symbol: responsePayload.company.symbol,
+          companyName: responsePayload.company.name,
+          sector: responsePayload.company.sector,
+          exchange: responsePayload.company.exchange,
+          verdict: responsePayload.aiAnalysis?.verdict,
+          confidence: responsePayload.aiAnalysis?.confidence,
+          healthScore: responsePayload.aiAnalysis?.healthScore || responsePayload.financials?.calculatedHealthScore,
+          decisionStrength: responsePayload.aiAnalysis?.decisionStrength,
+          dimensionScores: responsePayload.aiAnalysis?.dimensionScores,
+          topReasons: responsePayload.aiAnalysis?.topReasons,
+          keyRisks: responsePayload.aiAnalysis?.keyRisks,
           reportSnapshot: responsePayload,
           generatedAt: new Date(),
         });
@@ -867,13 +933,13 @@ const runResearch = asyncHandler(async (req, res) => {
 
       try {
         await updateAnalyticsOnResearch(
-          company.symbol,
-          company.name,
-          company.sector,
-          company.exchange,
-          aiAnalysis?.verdict,
-          aiAnalysis?.confidence,
-          aiAnalysis?.healthScore || financials?.calculatedHealthScore
+          responsePayload.company.symbol,
+          responsePayload.company.name,
+          responsePayload.company.sector,
+          responsePayload.company.exchange,
+          responsePayload.aiAnalysis?.verdict,
+          responsePayload.aiAnalysis?.confidence,
+          responsePayload.aiAnalysis?.healthScore || responsePayload.financials?.calculatedHealthScore
         );
       } catch (e) {
         console.warn('Failed to update analytics:', e.message);

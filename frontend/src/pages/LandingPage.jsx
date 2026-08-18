@@ -12,6 +12,7 @@ import {
   ShieldCheck, TrendingUp, Eye, MessageSquare, Zap, Clock,
 } from 'lucide-react'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { IS_ANDROID } from '../hooks/useIsAndroid'
 
 // ─── SEEDED RNG ───────────────────────────────────────────────────────────────
 function lcg(seed) {
@@ -168,10 +169,17 @@ function MorphingText() {
     <AnimatePresence mode="wait">
       <motion.span
         key={idx}
-        initial={{ opacity: 0, y: 28, filter: 'blur(10px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        exit={{ opacity: 0, y: -28, filter: 'blur(10px)' }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        // Android: filter:blur() is extremely expensive — use opacity+Y only
+        initial={IS_ANDROID
+          ? { opacity: 0, y: 16 }
+          : { opacity: 0, y: 28, filter: 'blur(10px)' }}
+        animate={IS_ANDROID
+          ? { opacity: 1, y: 0 }
+          : { opacity: 1, y: 0, filter: 'blur(0px)' }}
+        exit={IS_ANDROID
+          ? { opacity: 0, y: -16 }
+          : { opacity: 0, y: -28, filter: 'blur(10px)' }}
+        transition={{ duration: IS_ANDROID ? 0.25 : 0.5, ease: [0.22, 1, 0.36, 1] }}
         style={{ display: 'inline-block', color: '#0E8F5B', fontStyle: 'italic' }}
       >{MORPH_WORDS[idx]}</motion.span>
     </AnimatePresence>
@@ -182,6 +190,11 @@ function MorphingText() {
 function CanvasGlobe({ size = 380 }) {
   const canvasRef = useRef(null)
   const frameRef  = useRef(null)
+  const visibleRef = useRef(true)
+  // On mobile/Android throttle to 30fps (halves CPU/GPU usage, invisible quality diff)
+  const isMobileGlobe = typeof window !== 'undefined' && window.innerWidth < 768
+  const targetFps = (IS_ANDROID || isMobileGlobe) ? 30 : 60
+  const fpsInterval = 1000 / targetFps
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -194,6 +207,20 @@ function CanvasGlobe({ size = 380 }) {
 
     const cx = size / 2, cy = size / 2, R = size * 0.43
     let rot = 0
+    let lastFrameTime = 0
+
+    // ── Cache static sphere gradient (never changes) ──────────────────────
+    const sphereGrd = ctx.createRadialGradient(cx - R * 0.28, cy - R * 0.28, 0, cx, cy, R * 1.05)
+    sphereGrd.addColorStop(0, '#112B20')
+    sphereGrd.addColorStop(0.7, '#0A1F16')
+    sphereGrd.addColorStop(1, '#071410')
+
+    // ── Pause animation when globe scrolls off screen ─────────────────────
+    const observer = new IntersectionObserver(
+      ([entry]) => { visibleRef.current = entry.isIntersecting },
+      { threshold: 0 }
+    )
+    observer.observe(canvas)
 
     function toScreen(lat, lng) {
       const latR = lat  * Math.PI / 180
@@ -204,15 +231,18 @@ function CanvasGlobe({ size = 380 }) {
       return { sx: cx + x3 * R, sy: cy - y3 * R, z: z3 }
     }
 
-    function draw() {
+    function draw(now) {
+      frameRef.current = requestAnimationFrame(draw)
+      // Skip if off screen or fps throttle hasn't elapsed
+      if (!visibleRef.current) return
+      const elapsed = now - lastFrameTime
+      if (elapsed < fpsInterval) return
+      lastFrameTime = now - (elapsed % fpsInterval)
+
       ctx.clearRect(0, 0, size, size)
 
-      // Sphere — dark ocean
-      const grd = ctx.createRadialGradient(cx - R * 0.28, cy - R * 0.28, 0, cx, cy, R * 1.05)
-      grd.addColorStop(0, '#112B20')
-      grd.addColorStop(0.7, '#0A1F16')
-      grd.addColorStop(1, '#071410')
-      ctx.fillStyle = grd
+      // Sphere — use cached static gradient
+      ctx.fillStyle = sphereGrd
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill()
 
       // Sphere outline
@@ -252,7 +282,7 @@ function CanvasGlobe({ size = 380 }) {
         if (z < -0.05) return
         const alpha = Math.max(0, 0.4 + z * 0.6)
 
-        // Glow halo
+        // Glow halo (create gradient per-city per-frame — small cost, dynamic position)
         const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, 13)
         g.addColorStop(0, `rgba(14,143,91,${alpha * 0.55})`)
         g.addColorStop(1, 'rgba(14,143,91,0)')
@@ -276,11 +306,13 @@ function CanvasGlobe({ size = 380 }) {
         }
       })
 
-      rot += 0.15
-      frameRef.current = requestAnimationFrame(draw)
+      rot += IS_ANDROID || isMobileGlobe ? 0.08 : 0.15
     }
-    draw()
-    return () => cancelAnimationFrame(frameRef.current)
+    frameRef.current = requestAnimationFrame(draw)
+    return () => {
+      cancelAnimationFrame(frameRef.current)
+      observer.disconnect()
+    }
   }, [size])
 
   return (
@@ -533,8 +565,14 @@ function HeroSection() {
           </motion.div>
 
           <h1 style={{ fontFamily:"'Fraunces',serif", fontSize: isMobile ? 'clamp(2.4rem,8vw,3.2rem)' : 'clamp(3rem,5.5vw,5rem)', fontWeight:700, lineHeight:1.02, letterSpacing:'-0.04em', color:'#0F211A', margin:'0 0 20px' }}>
-            {'Invest'.split('').map((ch,i)=>(
-              <motion.span key={i} initial={{ opacity:0,y:50,filter:'blur(10px)' }} animate={{ opacity:1,y:0,filter:'blur(0)' }} transition={{ delay:0.2+i*0.04,duration:0.7,ease:[0.22,1,0.36,1] }} style={{ display:'inline-block' }}>{ch}</motion.span>
+            {'Invest'.split('').map((ch, i) => (
+              <motion.span
+                key={i}
+                initial={IS_ANDROID ? { opacity: 0, y: 30 } : { opacity: 0, y: 50, filter: 'blur(10px)' }}
+                animate={IS_ANDROID ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, filter: 'blur(0)' }}
+                transition={{ delay: 0.2 + i * 0.04, duration: IS_ANDROID ? 0.4 : 0.7, ease: [0.22, 1, 0.36, 1] }}
+                style={{ display: 'inline-block' }}
+              >{ch}</motion.span>
             ))}
             <br />
             <motion.span initial={{ opacity:0,y:40 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.6,duration:0.7,ease:[0.22,1,0.36,1] }} style={{ display:'inline-block' }}>

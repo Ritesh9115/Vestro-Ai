@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/common/ProtectedRoute'
+import { IS_ANDROID } from './hooks/useIsAndroid'
 
 // Existing pages
 import LandingPage from './pages/LandingPage'
@@ -27,11 +28,20 @@ import SimulatorPage from './pages/SimulatorPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 
 // Page transition variants
-const pageVariants = {
-  initial:  { opacity: 0, y: 14 },
-  animate:  { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
-  exit:     { opacity: 0, y: -8,  transition: { duration: 0.18, ease: 'easeIn' } },
-}
+// Android: opacity-only (compositor-accelerated, avoids main-thread paint from Y transforms)
+// iOS/Desktop: subtle Y translate (smooth on WebKit & desktop Blink)
+const pageVariants = IS_ANDROID
+  ? {
+      initial: { opacity: 0 },
+      animate: { opacity: 1, transition: { duration: 0.18 } },
+      exit:    { opacity: 0, transition: { duration: 0.12 } },
+    }
+  : {
+      initial:  { opacity: 0, y: 14 },
+      animate:  { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
+      exit:     { opacity: 0, y: -8,  transition: { duration: 0.18, ease: 'easeIn' } },
+    }
+
 
 function AnimatedRoutes() {
   const location = useLocation()
@@ -43,7 +53,7 @@ function AnimatedRoutes() {
         initial="initial"
         animate="animate"
         exit="exit"
-        style={{ minHeight: '100vh' }}
+        style={{ minHeight: '100vh', willChange: 'opacity' }}
       >
         <Routes location={location}>
           {/* Existing routes — untouched */}

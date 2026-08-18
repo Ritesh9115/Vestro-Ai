@@ -1,5 +1,5 @@
-
 import { MetricCard, SectionLabel } from '../MetricCard/MetricCard'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function formatVal(value, type = 'number') {
   if (value === null || value === undefined || isNaN(value)) return 'N/A'
@@ -146,6 +146,7 @@ export default function FinancialMetrics({ financials, aiAnalysis }) {
 }
 
 function Section({ label, metrics }) {
+  const isMobile = useIsMobile()
   return (
     <div
       style={{
@@ -161,7 +162,7 @@ function Section({ label, metrics }) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+          gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '140px' : '160px'}, 1fr))`,
           gap: 12,
         }}
       >

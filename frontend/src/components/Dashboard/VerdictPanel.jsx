@@ -1,7 +1,10 @@
 import React from 'react'
 import { AlertTriangle, CheckCircle, Clock, TrendingUp, TrendingDown, ShieldAlert, Activity, BookOpen, UserCheck, Crosshair } from 'lucide-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import { useExperience } from '../../context/ExperienceContext'
+import AILangSelector from '../common/AILangSelector'
 
-function VerdictBadgeLarge({ verdict }) {
+function VerdictBadgeLarge({ verdict, isMobile }) {
   const colors = {
     INVEST: { bg: '#E4F5EC', color: '#0B6E46', border: '#CDEBDB' },
     WATCH: { bg: '#FBF3E2', color: '#B8862E', border: '#EDD99A' },
@@ -15,13 +18,13 @@ function VerdictBadgeLarge({ verdict }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px 48px',
+        padding: isMobile ? '10px 28px' : '16px 48px',
         borderRadius: 16,
         background: theme.bg,
         border: `2px solid ${theme.border}`,
         color: theme.color,
         fontFamily: "'IBM Plex Mono', monospace",
-        fontSize: '2rem',
+        fontSize: isMobile ? '1.4rem' : '2rem',
         fontWeight: 700,
         textTransform: 'uppercase',
         letterSpacing: '0.08em',
@@ -68,6 +71,7 @@ function ListContent({ items }) {
 }
 
 export default function VerdictPanel({ aiAnalysis }) {
+  const isMobile = useIsMobile()
   if (!aiAnalysis) return null
 
   const {
@@ -94,40 +98,52 @@ export default function VerdictPanel({ aiAnalysis }) {
         background: '#FFFFFF',
         border: '1px solid #E5E8E2',
         borderRadius: 24,
-        padding: 32,
+        padding: isMobile ? '20px 16px' : 32,
         marginBottom: 24,
         boxShadow: '0 4px 12px rgba(15,33,26,0.03)',
       }}
     >
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <h2 style={{ margin: '0 0 24px 0', fontSize: '0.85rem', color: '#9AA69F', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      {/* Header with language selector */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <AILangSelector />
+      </div>
+
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <h2 style={{ margin: '0 0 20px 0', fontSize: '0.85rem', color: '#9AA69F', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           AI Research Verdict
         </h2>
-        <VerdictBadgeLarge verdict={verdict} />
+        <VerdictBadgeLarge verdict={verdict} isMobile={isMobile} />
         
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginTop: 32 }}>
+        {/* Stats row — responsive wrap */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: isMobile ? 24 : 48,
+          marginTop: 24,
+          flexWrap: 'wrap',
+        }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#0F211A' }}>{decisionStrength}<span style={{ fontSize: '1rem', color: '#9AA69F' }}>/10</span></div>
-            <div style={{ fontSize: '0.75rem', color: '#5B6B63', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.04em' }}>Decision Strength</div>
+            <div style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#0F211A' }}>{decisionStrength}<span style={{ fontSize: '0.9rem', color: '#9AA69F' }}>/10</span></div>
+            <div style={{ fontSize: '0.72rem', color: '#5B6B63', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.04em' }}>Decision Strength</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#0F211A' }}>{healthScore}<span style={{ fontSize: '1rem', color: '#9AA69F' }}>/100</span></div>
-            <div style={{ fontSize: '0.75rem', color: '#5B6B63', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.04em' }}>Health Score</div>
+            <div style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#0F211A' }}>{healthScore}<span style={{ fontSize: '0.9rem', color: '#9AA69F' }}>/100</span></div>
+            <div style={{ fontSize: '0.72rem', color: '#5B6B63', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.04em' }}>Health Score</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#0F211A' }}>{confidence}%</div>
-            <div style={{ fontSize: '0.75rem', color: '#5B6B63', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.04em' }}>AI Confidence</div>
+            <div style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#0F211A' }}>{confidence}%</div>
+            <div style={{ fontSize: '0.72rem', color: '#5B6B63', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.04em' }}>AI Confidence</div>
           </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 32 }}>
-        <p style={{ margin: 0, fontSize: '1.1rem', lineHeight: 1.7, color: '#0F211A', textAlign: 'center', maxWidth: 800, marginInline: 'auto', fontWeight: 500 }}>
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ margin: 0, fontSize: isMobile ? '0.95rem' : '1.1rem', lineHeight: 1.7, color: '#0F211A', textAlign: 'center', maxWidth: 800, marginInline: 'auto', fontWeight: 500 }}>
           {investmentThesis}
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 28 }}>
         {verdict === 'INVEST' && (
           <>
             <SectionCard title="Why Invest & Top Strengths" icon={TrendingUp} theme="success">
@@ -180,21 +196,28 @@ export default function VerdictPanel({ aiAnalysis }) {
         )}
       </div>
 
-      <div style={{ borderTop: '1px solid #E5E8E2', paddingTop: 24, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      {/* Bottom metadata row — responsive grid */}
+      <div style={{
+        borderTop: '1px solid #E5E8E2',
+        paddingTop: 20,
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+        gap: 12,
+      }}>
         <div>
-          <div style={{ fontSize: '0.75rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Business Quality</div>
+          <div style={{ fontSize: '0.72rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Business Quality</div>
           <div style={{ fontSize: '0.9rem', color: '#0F211A', fontWeight: 500 }}>{businessQuality}</div>
         </div>
         <div>
-          <div style={{ fontSize: '0.75rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Valuation Signal</div>
+          <div style={{ fontSize: '0.72rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Valuation Signal</div>
           <div style={{ fontSize: '0.9rem', color: '#0F211A', fontWeight: 500 }}>{valuationSignal}</div>
         </div>
         <div>
-          <div style={{ fontSize: '0.75rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Risk Level</div>
+          <div style={{ fontSize: '0.72rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Risk Level</div>
           <div style={{ fontSize: '0.9rem', color: '#0F211A', fontWeight: 500 }}>{riskLevel}</div>
         </div>
         <div>
-          <div style={{ fontSize: '0.75rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Suitable Investor</div>
+          <div style={{ fontSize: '0.72rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 4 }}>Suitable Investor</div>
           <div style={{ fontSize: '0.9rem', color: '#0F211A', fontWeight: 500 }}>{suitableInvestorProfile}</div>
         </div>
       </div>

@@ -13,13 +13,43 @@ const MODELS = [
   'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
   'gemini-3.6-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite'
+  'gemini-3.6-flash-lite'
 ];
 
 /** Sleep helper */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Try to recover a valid JSON object from a string that may be truncated.
+ * Scans backwards through the string looking for a point where JSON.parse succeeds.
+ * Used when Gemini hits maxOutputTokens mid-JSON.
+ */
+function repairTruncatedJson(str) {
+  // First pass: try with maxOutputTokens bumped to 16k on next model
+  // Second pass: close dangling structure by scanning backwards
+  let s = str.trim();
+  // Scan backwards: try cutting off the last partial array/object element
+  for (let i = s.length - 1; i > s.length / 2; i--) {
+    const ch = s[i];
+    if (ch === ',' || ch === '[' || ch === '{') {
+      // Try closing the structure at this point
+      const truncated = s.slice(0, i);
+      // Count open braces/brackets
+      let depth = 0;
+      const closes = [];
+      for (const c of truncated) {
+        if (c === '{') { depth++; closes.push('}'); }
+        else if (c === '[') { depth++; closes.push(']'); }
+        else if (c === '}' || c === ']') { closes.pop(); depth--; }
+      }
+      const candidate = truncated + closes.reverse().join('');
+      try {
+        return JSON.parse(candidate);
+      } catch (_) { /* continue */ }
+    }
+  }
+  return null;
+}
 
 /**
  * Extract retryDelay seconds from a 429 error message.
@@ -78,7 +108,16 @@ async function callGemini(prompt, options = {}) {
           if (start === -1 || end === -1) {
             throw new Error(`Gemini did not return valid JSON (model: ${modelName})`);
           }
-          return JSON.parse(text.slice(start, end + 1));
+          const jsonStr = text.slice(start, end + 1);
+          try {
+            return JSON.parse(jsonStr);
+          } catch (parseErr) {
+            // Recovery: Gemini may have truncated mid-JSON. Try to find the last
+            // complete top-level object by scanning backwards for a valid closing brace.
+            const recovered = repairTruncatedJson(jsonStr);
+            if (recovered) return recovered;
+            throw new Error(`JSON parse failed (model: ${modelName}): ${parseErr.message.slice(0, 80)}`);
+          }
         }
         return text;
 

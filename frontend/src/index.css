@@ -6,6 +6,8 @@
 
 html {
   scroll-behavior: smooth;
+  /* Prevent rubber-band scroll chaining which causes jank on Android */
+  overscroll-behavior: none;
 }
 
 body {
@@ -17,6 +19,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   /* Prevent horizontal overflow on mobile */
   overflow-x: hidden;
+  /* Prevent tap highlight flash on Android (causes visual lag) */
+  -webkit-tap-highlight-color: transparent;
+  /* Optimize touch scrolling — let the browser own the scroll gesture */
+  touch-action: pan-y;
 }
 
 .mono {
@@ -62,6 +68,8 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* Allow natural horizontal scrolling without blocking vertical */
+  touch-action: pan-x pan-y;
 }
 .scroll-x::-webkit-scrollbar { display: none; }
 
@@ -79,15 +87,24 @@ body {
   gap: 16px;
 }
 
-/* Card base */
+/* Card base — contain layout+style to prevent unnecessary repaints */
 .card {
   background: #fff;
   border: 1px solid #E5E8E2;
   border-radius: 14px;
   padding: 20px;
+  contain: layout style;
 }
 
-/* Mobile-specific overrides */
+/* ── Performance: GPU layer promotion ───────────────────── */
+/* Elements that animate should be in their own compositor layer */
+[data-anim],
+.will-transform {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* ── Mobile-specific overrides ──────────────────────────── */
 @media (max-width: 767px) {
   .page-wrap {
     padding: 20px 16px 80px;
@@ -103,9 +120,21 @@ body {
     display: none !important;
   }
 
-  /* Ensure inputs are large enough to tap */
+  /* Ensure inputs are large enough to tap (prevents iOS zoom on focus) */
   input, select, textarea, button {
-    font-size: 16px; /* prevents iOS zoom on focus */
+    font-size: 16px;
+  }
+
+  /* Prevent fixed-width elements from causing horizontal scroll */
+  img, video, canvas, svg {
+    max-width: 100%;
+  }
+
+  /* Tables: allow horizontal scroll rather than content overflow */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -116,3 +145,10 @@ body {
   }
 }
 
+/* ── Reduced motion: respect user preference ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

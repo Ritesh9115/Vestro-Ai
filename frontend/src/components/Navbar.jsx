@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { IS_ANDROID } from '../hooks/useIsAndroid'
 import toast from 'react-hot-toast'
 
 const NAV_LINKS = [
@@ -69,12 +70,17 @@ export default function Navbar() {
       <nav
         style={{
           position: 'sticky', top: 0, zIndex: 50,
-          background: 'rgba(255,255,255,0.95)',
-          backdropFilter: 'blur(12px)',
+          // backdrop-filter blur is extremely expensive on Android Chrome (triggers full
+          // page repaint on every scroll tick). On Android we use a solid background instead.
+          background: IS_ANDROID ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.95)',
+          backdropFilter: IS_ANDROID ? 'none' : 'blur(12px)',
           borderBottom: '1px solid #E5E8E2',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: isMobile ? '0 16px' : '0 32px',
           height: 60,
+          // Promote sticky navbar to its own GPU compositor layer
+          willChange: 'transform',
+          transform: 'translateZ(0)',
         }}
       >
         {/* Logo */}

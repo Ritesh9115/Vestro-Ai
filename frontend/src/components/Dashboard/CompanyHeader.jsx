@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react'
 import VerdictBadge from '../VerdictBadge/VerdictBadge'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function CompanyHeader({ company, aiAnalysis, onSaveReport, onAddToWatchlist, onInvestClick }) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const isMobile = useIsMobile()
   if (!company) return null
 
   const changePositive = company.changePercent >= 0
@@ -31,7 +33,7 @@ export default function CompanyHeader({ company, aiAnalysis, onSaveReport, onAdd
           height: '100%',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 14, flex: 1, width: '100%' }}>
           <div
             style={{
               width: 52,
@@ -84,7 +86,7 @@ export default function CompanyHeader({ company, aiAnalysis, onSaveReport, onAdd
             </div>
           </div>
           
-          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+          <div style={{ marginLeft: isMobile ? 0 : 'auto', textAlign: isMobile ? 'left' : 'right', width: isMobile ? '100%' : 'auto', marginTop: isMobile ? 8 : 0 }}>
             <div
               style={{
                 fontFamily: "'IBM Plex Mono', monospace",
@@ -112,7 +114,7 @@ export default function CompanyHeader({ company, aiAnalysis, onSaveReport, onAdd
               {changeText} today
             </div>
 
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: isMobile ? 'flex-start' : 'flex-end', flexWrap: 'wrap' }}>
               <button 
                 onClick={onAddToWatchlist}
                 style={{

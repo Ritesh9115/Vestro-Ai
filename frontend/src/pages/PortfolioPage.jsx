@@ -5,6 +5,8 @@ import api from '../services/api'
 import toast from 'react-hot-toast'
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useExperience } from '../context/ExperienceContext'
+import AILangSelector from '../components/common/AILangSelector'
 
 const SECTOR_COLORS = ['#0E8F5B', '#B8862E', '#4A90D9', '#C8443A', '#7B61FF', '#00BCD4', '#FF6B35', '#9C27B0']
 
@@ -26,6 +28,7 @@ function HealthRing({ score }) {
 
 export default function PortfolioPage() {
   const isMobile = useIsMobile()
+  const { aiLang } = useExperience()
   const [holdings, setHoldings] = useState([])
   const [analytics, setAnalytics] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -50,13 +53,18 @@ export default function PortfolioPage() {
   async function fetchAnalytics() {
     setLoadingAnalytics(true)
     try {
-      const res = await api.get('/api/portfolio/analytics')
+      const res = await api.get(`/api/portfolio/analytics?lang=${aiLang}`)
       setAnalytics(res.data)
     } catch { toast.error('Failed to load analytics') }
     finally { setLoadingAnalytics(false) }
   }
 
   useEffect(() => { if (holdings.length > 0) fetchAnalytics() }, [holdings.length])
+
+  // Re-fetch AI insights when language changes
+  useEffect(() => {
+    if (analytics && holdings.length > 0) fetchAnalytics()
+  }, [aiLang])
 
   async function addHolding(e) {
     e.preventDefault()
@@ -103,17 +111,20 @@ export default function PortfolioPage() {
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: isMobile ? '20px 16px 80px' : '32px 24px 80px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.5rem' : '1.75rem', fontWeight: 600, color: '#0F211A', margin: 0 }}>Portfolio</h1>
-            {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.875rem', marginTop: 4 }}>Track, analyse and optimise your investments</p>}
+            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.6rem' : '2rem', fontWeight: 700, color: '#0F211A', margin: '0 0 6px' }}>Portfolio Intelligence</h1>
+            {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.9rem', margin: 0 }}>AI-powered 360° view of your investments, risks, and health.</p>}
           </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            onClick={() => setShowAddForm(!showAddForm)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: 'linear-gradient(135deg,#0E8F5B,#0B6E46)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem', fontFamily: 'Inter,sans-serif' }}>
-            <Plus size={16} /> Add Holding
-          </motion.button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <AILangSelector />
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              onClick={() => setShowAddForm(!showAddForm)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: 'linear-gradient(135deg,#0E8F5B,#0B6E46)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem', fontFamily: 'Inter,sans-serif' }}>
+              <Plus size={16} /> Add Holding
+            </motion.button>
+          </div>
         </div>
 
         {/* Add form */}
@@ -375,7 +386,10 @@ export default function PortfolioPage() {
                 ) : analytics?.aiSuggestions ? (
                   <div>
                     <div style={{ ...card, marginBottom: 16, background: 'linear-gradient(135deg,#0E8F5B10,#0B6E4606)', border: '1px solid #C8E6D8' }}>
-                      <p style={{ fontWeight: 700, color: '#0F211A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}><Sparkles size={16} color="#0E8F5B" /> AI Assessment</p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: 8, flexDirection: isMobile ? 'column' : 'row', gap: 12 }}>
+                        <p style={{ fontWeight: 700, color: '#0F211A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Sparkles size={16} color="#0E8F5B" /> AI Assessment</p>
+                        <AILangSelector />
+                      </div>
                       <p style={{ color: '#5B6B63', fontSize: '0.9rem', lineHeight: 1.6 }}>{analytics.aiSuggestions.overallAssessment}</p>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>

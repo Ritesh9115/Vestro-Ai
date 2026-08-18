@@ -1,8 +1,8 @@
-
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
 import { SectionLabel } from '../MetricCard/MetricCard'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function formatBillions(value) {
   if (!value) return '0'
@@ -42,6 +42,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function RevenueChart({ historicalData }) {
+  const isMobile = useIsMobile()
   if (!historicalData || historicalData.length === 0) return null
 
   const chartData = historicalData.map((d) => ({
@@ -57,7 +58,7 @@ export default function RevenueChart({ historicalData }) {
         background: '#FFFFFF',
         border: '1px solid #E5E8E2',
         borderRadius: 14,
-        padding: 20,
+        padding: isMobile ? 12 : 20,
         marginBottom: 20,
         boxShadow: '0 1px 2px rgba(15,33,26,0.04)',
       }}
@@ -77,14 +78,16 @@ export default function RevenueChart({ historicalData }) {
             tick={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fill: '#9AA69F' }}
             axisLine={false}
             tickLine={false}
-            width={60}
+            width={isMobile ? 50 : 60}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend
-            iconType="square"
-            iconSize={8}
-            wrapperStyle={{ fontFamily: "'Inter', sans-serif", fontSize: '0.75rem' }}
-          />
+          {!isMobile && (
+            <Legend
+              iconType="square"
+              iconSize={8}
+              wrapperStyle={{ fontFamily: "'Inter', sans-serif", fontSize: '0.75rem' }}
+            />
+          )}
           <Bar dataKey="Revenue" fill="#0E8F5B" radius={[4, 4, 0, 0]} maxBarSize={40} />
           <Bar dataKey="Gross Profit" fill="#6BD79E" radius={[4, 4, 0, 0]} maxBarSize={40} />
           <Bar dataKey="Net Income" fill="#B8E4CA" radius={[4, 4, 0, 0]} maxBarSize={40} />

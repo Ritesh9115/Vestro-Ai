@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Zap, ChevronRight, Activity, Target, Calendar, IndianRupee, ArrowRight, Search } from 'lucide-react'
+import { TrendingUp, Zap, ChevronRight, Activity, Target, Calendar, IndianRupee, ArrowRight, Search, AlertTriangle, HelpCircle, Shield, Info, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import api, { searchCompanies } from '../services/api'
 import toast from 'react-hot-toast'
 import { useIsMobile } from '../hooks/useIsMobile'
+import AILangSelector from '../components/common/AILangSelector'
 
 const MODULES = [
   { id: 'scenario', label: '📊 Scenario Analysis', desc: 'Adjust financial levers live and see AI verdict change in real-time' },
@@ -220,7 +221,7 @@ function ScenarioModule() {
         />
       )}
       {baseData && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
           <div style={card}>
             <p style={{ fontWeight: 700, color: '#0F211A', marginBottom: 16 }}>🎛️ Adjust Financial Levers</p>
             <SliderField label="Revenue Growth" field="revenueGrowth" min={-30} max={50} value={sliders.revenueGrowth} onChange={updateSlider} />
@@ -317,7 +318,7 @@ function StressTestModule() {
             {testing ? <><div style={{ ...spinStyle, width: 16, height: 16, border: '2px solid #fff4', borderTopColor: '#fff', margin: 0 }} /> Running...</> : <><Activity size={15} /> Run Stress Test</>}
           </button>
           {result && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
               <div style={card}>
                 <p style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0F211A', marginBottom: 12 }}>Before Stress</p>
                 <div style={{ marginBottom: 8 }}><VerdictBadge verdict={baseData.aiAnalysis?.verdict || 'WATCH'} /></div>
@@ -399,7 +400,7 @@ function WhatIfModule() {
             </div>
           </div>
           {result && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
               <div style={card}>
                 <p style={{ fontSize: '0.72rem', color: '#9AA69F', textTransform: 'uppercase', marginBottom: 8 }}>Before</p>
                 <div style={{ marginBottom: 8 }}><VerdictBadge verdict={baseData.aiAnalysis?.verdict || 'WATCH'} /></div>
@@ -465,7 +466,7 @@ function QuarterlyModule() {
         />
       )}
       {baseData && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
           <div style={card}>
             <p style={{ fontWeight: 700, color: '#0F211A', marginBottom: 16 }}>📅 Quarterly Metrics</p>
             <SliderField label="Revenue Growth (%)" field="revenueGrowth" min={-30} max={60} value={metrics.revenueGrowth} onChange={update} />
@@ -598,8 +599,13 @@ export default function SimulatorPage() {
             <Zap size={13} color="#0E8F5B" />
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0E8F5B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Scenario Lab</span>
           </div>
-          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.6rem' : '2rem', fontWeight: 700, color: '#0F211A', margin: '0 0 6px' }}>Investment Simulator</h1>
-          {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.9rem' }}>Company-specific scenario analysis, stress tests, and what-if modelling powered by AI.</p>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: isMobile ? '1.6rem' : '2rem', fontWeight: 700, color: '#0F211A', margin: '0 0 6px' }}>Investment Simulator</h1>
+              {!isMobile && <p style={{ color: '#5B6B63', fontSize: '0.9rem', margin: 0 }}>Company-specific scenario analysis, stress tests, and what-if modelling powered by AI.</p>}
+            </div>
+            <AILangSelector />
+          </div>
         </div>
 
         {/* Module selector — scrollable on mobile */}

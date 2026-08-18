@@ -2,6 +2,8 @@ import React from 'react'
 import { SectionLabel } from '../MetricCard/MetricCard'
 import { CheckCircle, XCircle, MinusCircle, Info } from 'lucide-react'
 import { useExperience } from '../../context/ExperienceContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import AILangSelector from '../common/AILangSelector'
 
 function CheckIcon({ passed }) {
   if (passed === true) return <CheckCircle size={18} color="#0E8F5B" style={{ flexShrink: 0 }} />
@@ -10,7 +12,8 @@ function CheckIcon({ passed }) {
 }
 
 export default function ExplainableAI({ aiAnalysis }) {
-  const { mode, setMode } = useExperience()
+  const { mode, setMode, aiLang } = useExperience()
+  const isMobile = useIsMobile()
   if (!aiAnalysis) return null
 
   const { explainableChecks = [], missingInformation = [] } = aiAnalysis
@@ -27,10 +30,10 @@ export default function ExplainableAI({ aiAnalysis }) {
           boxShadow: '0 2px 8px rgba(15,33,26,0.03)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: 20, gap: 16 }}>
           <SectionLabel>Explainable AI Metrics</SectionLabel>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: '0.75rem', color: '#9AA69F', fontWeight: 600 }}>Mode:</span>
             {['beginner', 'intermediate', 'expert'].map((m) => (
               <button
@@ -52,6 +55,9 @@ export default function ExplainableAI({ aiAnalysis }) {
                 {m}
               </button>
             ))}
+            <div style={{ marginLeft: isMobile ? 0 : 8, marginTop: isMobile ? 8 : 0 }}>
+              <AILangSelector />
+            </div>
           </div>
         </div>
 
@@ -93,7 +99,7 @@ export default function ExplainableAI({ aiAnalysis }) {
                 )}
               </div>
               
-              <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: '#5B6B63', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Info size={14} /> Why It Matters
@@ -112,17 +118,17 @@ export default function ExplainableAI({ aiAnalysis }) {
                 </div>
               </div>
 
-              <div style={{ padding: '12px 20px', background: '#F5F7F4', borderTop: '1px solid #E5E8E2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '12px 20px', background: '#F5F7F4', borderTop: '1px solid #E5E8E2', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.7rem', color: '#9AA69F', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
-                    AI Explanation ({mode} mode)
+                    AI Explanation ({mode} mode{aiLang === 'hi' ? ' · Hindi' : ''})
                   </div>
                   <div style={{ fontSize: '0.85rem', color: '#5B6B63', lineHeight: 1.5 }}>
                     {check.explanation?.[mode] || check.explanation?.beginner || 'No explanation provided.'}
                   </div>
                 </div>
                 {check.source && (
-                  <div style={{ marginLeft: 20, textAlign: 'right' }}>
+                  <div style={{ marginLeft: isMobile ? 0 : 20, textAlign: isMobile ? 'left' : 'right' }}>
                     <div style={{ fontSize: '0.7rem', color: '#9AA69F', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Source</div>
                     <div style={{ fontSize: '0.8rem', color: '#0F211A', fontWeight: 500 }}>{check.source}</div>
                   </div>

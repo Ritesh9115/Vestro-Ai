@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ArrowRight, TrendingUp, X } from 'lucide-react'
+import { Search as SearchIcon, ArrowRight, X, TrendingUp } from 'lucide-react'
 import { searchCompanies } from '../../services/api'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -33,12 +33,10 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
   const inputRef = useRef(null)
   const debouncedQuery = useDebounce(inputValue, 280)
 
-  // Auto-focus if requested (e.g. when landing page CTA is clicked)
   useEffect(() => {
     if (autoFocus && inputRef.current) inputRef.current.focus()
   }, [autoFocus])
 
-  // Live search
   useEffect(() => {
     if (debouncedQuery.trim().length < 2) {
       setSuggestions([])
@@ -60,7 +58,6 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
     return () => { cancelled = true }
   }, [debouncedQuery])
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -95,57 +92,84 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
     if (e.key === 'Escape') { setShowDropdown(false); setActiveIdx(-1) }
   }
 
-  const fontSize = large ? '1rem' : '0.9rem'
-  const padding = large ? '14px 18px' : '10px 14px'
+  const btnPadding = large ? '10px 18px' : '8px 14px'
+  const btnFontSize = large ? '1rem' : '0.85rem'
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ position: 'relative' }}>
         {/* Input row */}
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: '#FFFFFF', border: `1.5px solid ${showDropdown && suggestions.length > 0 ? '#0E8F5B' : '#E5E8E2'}`,
-            borderRadius: showDropdown && suggestions.length > 0 ? (isMobile ? '14px 14px 0 0' : '14px 14px 0 0') : 14,
-            padding: large ? '8px 8px 8px 18px' : '6px 6px 6px 14px',
-            boxShadow: '0 1px 2px rgba(15,33,26,0.04), 0 8px 24px rgba(15,33,26,0.05)',
-            transition: 'border-color 0.2s, border-radius 0.2s',
-          }}
-        >
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          background: '#FFFFFF',
+          border: `1.5px solid ${showDropdown && suggestions.length > 0 ? '#0E8F5B' : '#E5E8E2'}`,
+          borderRadius: showDropdown && suggestions.length > 0 ? '16px 16px 0 0' : 16,
+          padding: '4px 4px 4px 16px',
+          boxShadow: '0 4px 12px rgba(15,33,26,0.05)',
+          transition: 'border-color 0.2s, border-radius 0.2s',
+        }}>
+          {/* Loading spinner or search icon */}
           {loading
             ? <div style={{ width: 18, height: 18, border: '2px solid #E5E8E2', borderTopColor: '#0E8F5B', borderRadius: '50%', animation: 'sbSpin 0.7s linear infinite', flexShrink: 0 }} />
-            : <Search size={18} color="#9AA69F" style={{ flexShrink: 0 }} />
+            : <SearchIcon size={18} color="#9AA69F" style={{ flexShrink: 0 }} />
           }
+
           <input
             ref={inputRef}
             value={inputValue}
-            onChange={e => { setInputValue(e.target.value); if (!e.target.value) { setSuggestions([]); setShowDropdown(false) } }}
+            onChange={e => {
+              setInputValue(e.target.value)
+              if (!e.target.value) { setSuggestions([]); setShowDropdown(false) }
+            }}
             onKeyDown={handleKeyDown}
-            onFocus={() => { if (suggestions.length > 0) setShowDropdown(true) }}
-            placeholder={large ? 'Try "AAPL", "TCS.NS" or "Reliance"...' : 'Search company or symbol...'}
+            placeholder={isMobile ? 'Search stocks...' : (large ? 'Try "TCS", "RELIANCE" or "AAPL"...' : 'Search company or symbol...')}
             autoComplete="off"
             style={{
-              flex: 1, border: 'none', outline: 'none', fontSize,
-              fontFamily: "'Inter', sans-serif", padding: '8px 0',
+              flex: 1, border: 'none', outline: 'none',
+              padding: isMobile
+                ? '14px 8px'
+                : large ? '10px 130px 10px 12px' : '10px 100px 10px 12px',
+              fontSize: large ? '1rem' : '0.9rem',
               background: 'transparent', color: '#0F211A',
+              fontFamily: "'Inter', sans-serif",
             }}
           />
+
+          {/* Clear button */}
           {inputValue && (
-            <button type="button" onClick={() => { setInputValue(''); setSuggestions([]); setShowDropdown(false); inputRef.current?.focus() }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA69F', padding: 4, display: 'flex', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setInputValue('')
+                setSuggestions([])
+                setShowDropdown(false)
+                inputRef.current?.focus()
+              }}
+              style={{
+                position: 'absolute',
+                right: isMobile ? 12 : large ? 128 : 98,
+                top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none',
+                cursor: 'pointer', color: '#9AA69F', padding: 4,
+                display: 'flex', alignItems: 'center',
+              }}
+            >
               <X size={14} />
             </button>
           )}
-          {/* Show Analyse inline on desktop */}
+
+          {/* Desktop Analyse button — inside the input row */}
           {!isMobile && (
             <button
               type="submit"
               style={{
                 background: 'linear-gradient(135deg, #0E8F5B 0%, #0B6E46 100%)',
-                color: '#fff', border: 'none', padding, borderRadius: 10,
-                fontWeight: 600, fontSize, whiteSpace: 'nowrap',
-                display: 'flex', alignItems: 'center', gap: 8,
+                color: '#fff', border: 'none',
+                padding: btnPadding, borderRadius: 10,
+                fontWeight: 600, fontSize: btnFontSize, whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 6,
                 cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                flexShrink: 0,
               }}
             >
               Analyse <ArrowRight size={14} />
@@ -153,14 +177,15 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
           )}
         </div>
 
-        {/* Analyse button below input on mobile */}
+        {/* Mobile: Analyse button below the input */}
         {isMobile && (
           <button
             type="submit"
             style={{
               width: '100%', marginTop: 10,
               background: 'linear-gradient(135deg, #0E8F5B 0%, #0B6E46 100%)',
-              color: '#fff', border: 'none', padding: large ? '13px' : '11px',
+              color: '#fff', border: 'none',
+              padding: large ? '14px' : '12px',
               borderRadius: 12, fontWeight: 700, fontSize: '1rem',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               cursor: 'pointer', fontFamily: "'Inter', sans-serif",
@@ -175,8 +200,10 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
       {/* Live suggestions dropdown */}
       {showDropdown && suggestions.length > 0 && (
         <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-          background: '#fff', border: '1.5px solid #0E8F5B', borderTop: 'none',
+          position: 'absolute', top: isMobile ? 'calc(100% - 2px)' : 'calc(100% - 2px)',
+          left: 0, right: 0, zIndex: 200,
+          background: '#fff',
+          border: '1.5px solid #0E8F5B', borderTop: 'none',
           borderRadius: '0 0 14px 14px',
           boxShadow: '0 12px 40px rgba(15,33,26,0.12)',
           overflow: 'hidden',
@@ -189,7 +216,8 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 width: '100%', padding: '11px 18px',
-                border: 'none', background: i === activeIdx ? '#F0FAF5' : 'transparent',
+                border: 'none',
+                background: i === activeIdx ? '#F0FAF5' : 'transparent',
                 cursor: 'pointer', textAlign: 'left',
                 borderBottom: i < suggestions.length - 1 ? '1px solid #F5F7F4' : 'none',
                 transition: 'background 0.15s',
@@ -233,8 +261,8 @@ export default function SearchBar({ large = false, onSearch, autoFocus = false }
                 padding: '6px 12px', borderRadius: 99, cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0E8F5B'; e.currentTarget.style.color = '#0B6E46' }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E8E2'; e.currentTarget.style.color = '#5B6B63' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#0E8F5B'; e.currentTarget.style.color = '#0B6E46' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E8E2'; e.currentTarget.style.color = '#5B6B63' }}
             >
               {pick.symbol}
             </button>

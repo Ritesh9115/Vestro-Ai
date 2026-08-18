@@ -7,8 +7,8 @@ const api = axios.create({
 })
 
 
-export async function fetchResearch(symbol) {
-  const response = await api.get(`/api/research/${symbol}`)
+export async function fetchResearch(symbol, lang = 'en') {
+  const response = await api.get(`/api/research/${symbol}?lang=${lang}`)
   return response.data
 }
 
