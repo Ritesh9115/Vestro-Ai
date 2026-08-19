@@ -179,6 +179,7 @@ function SliderField({ label, field, min, max, step, unit, value, onChange }) {
 
 // ── Scenario Analysis ──────────────────────────────────────────────────────────
 function ScenarioModule() {
+  const isMobile = useIsMobile()
   const [company, setCompany] = useState(null)
   const [researching, setResearching] = useState(false)
   const [baseData, setBaseData] = useState(null)
@@ -265,6 +266,7 @@ function ScenarioModule() {
 
 // ── Stress Test ────────────────────────────────────────────────────────────────
 function StressTestModule() {
+  const isMobile = useIsMobile()
   const [company, setCompany] = useState(null)
   const [researching, setResearching] = useState(false)
   const [baseData, setBaseData] = useState(null)
@@ -343,6 +345,7 @@ function StressTestModule() {
 
 // ── What-If ────────────────────────────────────────────────────────────────────
 function WhatIfModule() {
+  const isMobile = useIsMobile()
   const [company, setCompany] = useState(null)
   const [baseData, setBaseData] = useState(null)
   const [researching, setResearching] = useState(false)
@@ -425,6 +428,7 @@ function WhatIfModule() {
 
 // ── Quarterly Impact ───────────────────────────────────────────────────────────
 function QuarterlyModule() {
+  const isMobile = useIsMobile()
   const [company, setCompany] = useState(null)
   const [baseData, setBaseData] = useState(null)
   const [researching, setResearching] = useState(false)

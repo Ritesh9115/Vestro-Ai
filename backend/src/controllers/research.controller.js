@@ -654,14 +654,20 @@ const runResearch = asyncHandler(async (req, res) => {
     console.log(`\nServing ${cacheKey} from cache`);
     if (req.user) {
       ResearchHistory.create({
-        user: req.user._id,
+        userId: req.user._id,
         symbol: cachedData.company.symbol,
         companyName: cachedData.company.name,
         sector: cachedData.company.sector,
         exchange: cachedData.company.exchange,
-        healthScore: cachedData.aiAnalysis?.healthScore,
         verdict: cachedData.aiAnalysis?.verdict,
-        confidence: cachedData.aiAnalysis?.confidence
+        confidence: cachedData.aiAnalysis?.confidence,
+        healthScore: cachedData.aiAnalysis?.healthScore || cachedData.financials?.calculatedHealthScore,
+        decisionStrength: cachedData.aiAnalysis?.decisionStrength,
+        dimensionScores: cachedData.aiAnalysis?.dimensionScores,
+        topReasons: cachedData.aiAnalysis?.topReasons,
+        keyRisks: cachedData.aiAnalysis?.keyRisks,
+        reportSnapshot: cachedData,
+        generatedAt: new Date(),
       }).catch(err => console.error("History logging error:", err));
       updateAnalyticsOnResearch(
         cachedData.company.symbol, cachedData.company.name, cachedData.company.sector, 
