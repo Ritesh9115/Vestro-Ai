@@ -160,6 +160,18 @@ function ModuleEmptyState({ title, description, icon: Icon }) {
   )
 }
 
+function ModuleErrorState({ error }) {
+  return (
+    <div style={{ padding: '40px 20px', textAlign: 'center', background: '#FEF4F4', borderRadius: 12, border: '1px dashed #F3D2D1', marginTop: 20 }}>
+      <div style={{ width: 48, height: 48, background: '#FDECEC', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <AlertTriangle size={24} color="#C8443A" />
+      </div>
+      <h3 style={{ fontSize: '1.1rem', color: '#681B16', marginBottom: 8, fontWeight: 700 }}>Analysis Failed</h3>
+      <p style={{ color: '#A03831', fontSize: '0.9rem', maxWidth: 450, margin: '0 auto', lineHeight: 1.5 }}>{error}</p>
+    </div>
+  )
+}
+
 function SliderField({ label, field, min, max, step, unit, value, onChange }) {
   return (
     <div style={{ marginBottom: 16 }}>
@@ -183,18 +195,21 @@ function ScenarioModule() {
   const [company, setCompany] = useState(null)
   const [researching, setResearching] = useState(false)
   const [baseData, setBaseData] = useState(null)
+  const [error, setError] = useState(null)
   const [sliders, setSliders] = useState({})
   const [simResult, setSimResult] = useState(null)
   const [simulating, setSimulating] = useState(false)
 
   async function loadCompany(sel) {
-    setCompany(sel); setBaseData(null); setSimResult(null); setResearching(true)
+    setCompany(sel); setBaseData(null); setSimResult(null); setError(null); setResearching(true)
     try {
       const res = await api.get(`/api/research/${sel.symbol}`)
       const f = res.data.financials
       setBaseData(res.data)
       setSliders({ revenueGrowth: +(f.revenueGrowth ?? 8).toFixed(1), netMargin: +(f.netMargin ?? 10).toFixed(1), roe: +(f.roe ?? 12).toFixed(1), debtToEquity: +(f.debtToEquity ?? 0.5).toFixed(2), currentRatio: +(f.currentRatio ?? 1.5).toFixed(2) })
-    } catch (err) { toast.error(err.response?.data?.error || 'Failed to load company') }
+    } catch (err) { 
+      setError(err.response?.data?.error || 'Failed to load company financials. It may be unsupported.')
+    }
     finally { setResearching(false) }
   }
 
@@ -214,7 +229,8 @@ function ScenarioModule() {
     <div>
       <div style={{ marginBottom: 20 }}><CompanySearch label="Search company to simulate..." onSelect={loadCompany} /></div>
       {researching && <Loader label="Loading company financials..." />}
-      {!baseData && !researching && (
+      {error && !researching && <ModuleErrorState error={error} />}
+      {!baseData && !researching && !error && (
         <ModuleEmptyState 
           title="Scenario Analysis"
           description="Adjust key financial metrics like Revenue Growth and Net Margin using sliders to see how the AI adjusts the investment verdict."
@@ -270,16 +286,19 @@ function StressTestModule() {
   const [company, setCompany] = useState(null)
   const [researching, setResearching] = useState(false)
   const [baseData, setBaseData] = useState(null)
+  const [error, setError] = useState(null)
   const [selectedScenario, setSelectedScenario] = useState(null)
   const [result, setResult] = useState(null)
   const [testing, setTesting] = useState(false)
 
   async function loadCompany(sel) {
-    setCompany(sel); setBaseData(null); setResult(null); setResearching(true)
+    setCompany(sel); setBaseData(null); setResult(null); setError(null); setResearching(true)
     try {
       const res = await api.get(`/api/research/${sel.symbol}`)
       setBaseData(res.data)
-    } catch (err) { toast.error(err.response?.data?.error || 'Failed to load') }
+    } catch (err) { 
+      setError(err.response?.data?.error || 'Failed to load company data. It may be unsupported.')
+    }
     finally { setResearching(false) }
   }
 
@@ -297,7 +316,8 @@ function StressTestModule() {
     <div>
       <div style={{ marginBottom: 20 }}><CompanySearch label="Search company to stress test..." onSelect={loadCompany} /></div>
       {researching && <Loader label="Loading company data..." />}
-      {!baseData && !researching && (
+      {error && !researching && <ModuleErrorState error={error} />}
+      {!baseData && !researching && !error && (
         <ModuleEmptyState 
           title="Stress Testing"
           description="Subject the company to macroeconomic shocks like a Market Crash or High Inflation to evaluate its resilience and updated health score."
@@ -348,6 +368,7 @@ function WhatIfModule() {
   const isMobile = useIsMobile()
   const [company, setCompany] = useState(null)
   const [baseData, setBaseData] = useState(null)
+  const [error, setError] = useState(null)
   const [researching, setResearching] = useState(false)
   const [question, setQuestion] = useState('')
   const [result, setResult] = useState(null)
@@ -355,11 +376,13 @@ function WhatIfModule() {
   const EXAMPLES = ['What if revenue grows by 20% next year?', 'What if debt becomes zero?', 'What if net margin doubles?']
 
   async function loadCompany(sel) {
-    setCompany(sel); setBaseData(null); setResult(null); setResearching(true)
+    setCompany(sel); setBaseData(null); setResult(null); setError(null); setResearching(true)
     try {
       const res = await api.get(`/api/research/${sel.symbol}`)
       setBaseData(res.data)
-    } catch (err) { toast.error(err.response?.data?.error || 'Failed') }
+    } catch (err) { 
+      setError(err.response?.data?.error || 'Failed to load company data. It may be unsupported.')
+    }
     finally { setResearching(false) }
   }
 
@@ -376,11 +399,12 @@ function WhatIfModule() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}><CompanySearch label="Select a company first..." onSelect={loadCompany} /></div>
-      {researching && <Loader />}
-      {!baseData && !researching && (
+      {researching && <Loader label="Loading company data..." />}
+      {error && !researching && <ModuleErrorState error={error} />}
+      {!baseData && !researching && !error && (
         <ModuleEmptyState 
           title="What-If Analysis"
-          description="Ask natural language questions like 'What if revenue grows 20%?' and get an instant AI recalculation of the company's prospects."
+          description="Ask open-ended questions like 'What if revenue drops 20% due to competition?' and let AI simulate the financial impact."
           icon={Target}
         />
       )}
@@ -431,6 +455,7 @@ function QuarterlyModule() {
   const isMobile = useIsMobile()
   const [company, setCompany] = useState(null)
   const [baseData, setBaseData] = useState(null)
+  const [error, setError] = useState(null)
   const [researching, setResearching] = useState(false)
   const [metrics, setMetrics] = useState({ revenueGrowth: 8, netMargin: 10, epsGrowth: 5 })
   const [result, setResult] = useState(null)
@@ -439,13 +464,15 @@ function QuarterlyModule() {
   function update(field, val) { setMetrics(m => ({ ...m, [field]: val })); setResult(null) }
 
   async function loadCompany(sel) {
-    setCompany(sel); setBaseData(null); setResult(null); setResearching(true)
+    setCompany(sel); setBaseData(null); setResult(null); setError(null); setResearching(true)
     try {
       const res = await api.get(`/api/research/${sel.symbol}`)
       const f = res.data.financials
       setBaseData(res.data)
       setMetrics({ revenueGrowth: +(f.revenueGrowth ?? 8).toFixed(1), netMargin: +(f.netMargin ?? 10).toFixed(1), epsGrowth: +(f.epsGrowth ?? 5).toFixed(1) })
-    } catch (err) { toast.error(err.response?.data?.error || 'Failed') }
+    } catch (err) { 
+      setError(err.response?.data?.error || 'Failed to load company financials. It may be unsupported.')
+    }
     finally { setResearching(false) }
   }
 
@@ -461,11 +488,12 @@ function QuarterlyModule() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}><CompanySearch label="Select company..." onSelect={loadCompany} /></div>
-      {researching && <Loader />}
-      {!baseData && !researching && (
+      {researching && <Loader label="Loading company data..." />}
+      {error && !researching && <ModuleErrorState error={error} />}
+      {!baseData && !researching && !error && (
         <ModuleEmptyState 
           title="Quarterly Impact"
-          description="Simulate the impact of the upcoming earnings report by tweaking quarterly metrics to see if the stock remains an 'INVEST'."
+          description="Simulate upcoming quarterly earnings results to see how beats or misses affect the overall health score and verdict."
           icon={Calendar}
         />
       )}
