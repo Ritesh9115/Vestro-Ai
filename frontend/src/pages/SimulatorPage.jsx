@@ -161,13 +161,14 @@ function ModuleEmptyState({ title, description, icon: Icon }) {
 }
 
 function ModuleErrorState({ error }) {
+  const errMsg = typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'An unknown error occurred')
   return (
     <div style={{ padding: '40px 20px', textAlign: 'center', background: '#FEF4F4', borderRadius: 12, border: '1px dashed #F3D2D1', marginTop: 20 }}>
       <div style={{ width: 48, height: 48, background: '#FDECEC', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
         <AlertTriangle size={24} color="#C8443A" />
       </div>
       <h3 style={{ fontSize: '1.1rem', color: '#681B16', marginBottom: 8, fontWeight: 700 }}>Analysis Failed</h3>
-      <p style={{ color: '#A03831', fontSize: '0.9rem', maxWidth: 450, margin: '0 auto', lineHeight: 1.5 }}>{error}</p>
+      <p style={{ color: '#A03831', fontSize: '0.9rem', maxWidth: 450, margin: '0 auto', lineHeight: 1.5 }}>{errMsg}</p>
     </div>
   )
 }
